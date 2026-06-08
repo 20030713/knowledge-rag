@@ -1,0 +1,34 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: knowledge-rag
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/knowledge_rag?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+    username: root
+    password: root
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 0
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      id-type: assign_id
+
+knife4j:
+  enable: true
+
+app:
+  jwt:
+    secret: "knowledge-rag-demo-secret-key-must-be-at-least-32-bytes"
+    expire-hours: 24
+  upload:
+    root-path: uploads
+    max-size-mb: 20
