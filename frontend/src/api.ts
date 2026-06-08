@@ -65,6 +65,12 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     headers
   });
 
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) {
+    const message = await response.text();
+    throw new Error(message || "请求失败，请检查后端服务或跨域配置");
+  }
+
   const envelope = (await response.json()) as ApiEnvelope<T>;
   if (!response.ok || envelope.code !== 0) {
     throw new Error(envelope.message || "请求失败");
