@@ -71,6 +71,48 @@ GET /api/auth/me
 Authorization: Bearer <token>
 ```
 
+## 知识库接口
+
+创建知识库：
+
+```http
+POST /api/kb
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "name": "Java 八股资料库",
+  "description": "用于整理 Java 后端面试资料"
+}
+```
+
+查询我的知识库：
+
+```http
+GET /api/kb
+Authorization: Bearer <token>
+```
+
+更新知识库：
+
+```http
+PUT /api/kb/{id}
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "name": "公司制度知识库",
+  "description": "用于查询公司制度文档"
+}
+```
+
+删除知识库：
+
+```http
+DELETE /api/kb/{id}
+Authorization: Bearer <token>
+```
+
 ## 开发路线
 
 1. 用户注册、登录、JWT 鉴权
