@@ -123,3 +123,17 @@ Authorization: Bearer <token>
 6. RAG 问答与引用来源
 7. Redis 缓存、限流、分布式锁
 8. 异步任务、失败重试、后台统计
+
+## 前端启动
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+默认访问：
+
+```http
+http://localhost:5173
+```
