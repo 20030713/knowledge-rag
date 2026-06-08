@@ -144,7 +144,7 @@ function AuthScreen({ onAuthed }: { onAuthed: (user: CurrentUser) => void }) {
 
 function Workspace({ user, onLogout }: { user: CurrentUser; onLogout: () => void }) {
   const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([]);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -346,7 +346,7 @@ function DocumentStage({ selected }: { selected: KnowledgeBase | null }) {
     loadDocuments(selected.id);
   }, [selected?.id]);
 
-  async function loadDocuments(kbId: number) {
+  async function loadDocuments(kbId: string) {
     setLoading(true);
     setError("");
     try {

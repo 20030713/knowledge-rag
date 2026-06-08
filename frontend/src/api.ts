@@ -8,19 +8,19 @@ export type LoginPayload = {
 
 export type LoginResponse = {
   token: string;
-  userId: number;
+  userId: string;
   username: string;
   role: string;
 };
 
 export type CurrentUser = {
-  userId: number;
+  userId: string;
   username: string;
   role: string;
 };
 
 export type KnowledgeBase = {
-  id: number;
+  id: string;
   name: string;
   description: string | null;
   visibility: string;
@@ -34,8 +34,8 @@ export type KnowledgeBasePayload = {
 };
 
 export type DocumentItem = {
-  id: number;
-  kbId: number;
+  id: string;
+  kbId: string;
   fileName: string;
   fileType: string;
   fileUrl: string;
@@ -142,21 +142,21 @@ export const api = {
       body: JSON.stringify(payload)
     });
   },
-  updateKnowledgeBase(id: number, payload: KnowledgeBasePayload) {
+  updateKnowledgeBase(id: string, payload: KnowledgeBasePayload) {
     return request<KnowledgeBase>(`/api/kb/${id}`, {
       method: "PUT",
       body: JSON.stringify(payload)
     });
   },
-  deleteKnowledgeBase(id: number) {
+  deleteKnowledgeBase(id: string) {
     return request<void>(`/api/kb/${id}`, {
       method: "DELETE"
     });
   },
-  listDocuments(kbId: number) {
+  listDocuments(kbId: string) {
     return request<DocumentItem[]>(`/api/doc?kbId=${kbId}`);
   },
-  uploadDocument(kbId: number, file: File) {
+  uploadDocument(kbId: string, file: File) {
     const formData = new FormData();
     formData.set("kbId", String(kbId));
     formData.set("file", file);
