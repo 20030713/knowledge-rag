@@ -26,6 +26,19 @@ docker compose up -d
 mvn spring-boot:run
 ```
 
+启动后，后端会自动检查并创建当前阶段需要的业务表：
+
+- `user`
+- `knowledge_base`
+
+如果本地数据库还不存在，JDBC URL 需要带上：
+
+```text
+createDatabaseIfNotExist=true
+```
+
+Docker Compose 首次初始化 MySQL 容器时也会执行 `sql/init.sql`。如果容器已经初始化过，修改 `sql/init.sql` 不会自动重新执行。
+
 健康检查：
 
 ```http
