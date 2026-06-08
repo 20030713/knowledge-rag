@@ -469,6 +469,105 @@ textarea:focus {
   font-family: "Cascadia Mono", Consolas, monospace;
 }
 
+.document-stage {
+  min-height: 360px;
+  display: grid;
+  gap: 14px;
+}
+
+.upload-zone {
+  min-height: 174px;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  text-align: center;
+  border: 1px dashed #b9b1a5;
+  background: #fbf8f0;
+  color: #18201c;
+}
+
+.upload-zone input {
+  display: none;
+}
+
+.upload-zone strong {
+  font-size: 20px;
+}
+
+.upload-zone span {
+  color: #68736e;
+  font-size: 14px;
+}
+
+.document-list {
+  border: 1px solid #ded7ca;
+  background: #fffdf8;
+}
+
+.document-list-head,
+.document-row,
+.muted-document {
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 14px;
+  border-bottom: 1px solid #ece5da;
+}
+
+.document-list-head {
+  justify-content: space-between;
+}
+
+.document-list-head button {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d7d0c2;
+  background: #fbf8f0;
+  color: #18201c;
+  padding: 0 10px;
+}
+
+.document-row {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+}
+
+.document-row:last-child,
+.muted-document:last-child {
+  border-bottom: 0;
+}
+
+.document-row strong,
+.document-row span {
+  display: block;
+}
+
+.document-row strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.document-row span,
+.muted-document {
+  color: #68736e;
+  font-size: 13px;
+}
+
+.document-row em {
+  padding: 6px 9px;
+  background: #e3efe9;
+  color: #1d6b5b;
+  font-style: normal;
+  font-size: 12px;
+  font-family: "Cascadia Mono", Consolas, monospace;
+}
+
 .chat-mock {
   min-height: 360px;
   display: flex;

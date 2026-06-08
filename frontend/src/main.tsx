@@ -21,6 +21,7 @@ import {
   api,
   clearToken,
   CurrentUser,
+  DocumentItem,
   getToken,
   KnowledgeBase,
   setToken
@@ -58,10 +59,15 @@ function App() {
     return <AuthScreen onAuthed={setUser} />;
   }
 
-  return <Workspace user={user} onLogout={() => {
-    clearToken();
-    setUser(null);
-  }} />;
+  return (
+    <Workspace
+      user={user}
+      onLogout={() => {
+        clearToken();
+        setUser(null);
+      }}
+    />
+  );
 }
 
 function AuthScreen({ onAuthed }: { onAuthed: (user: CurrentUser) => void }) {
@@ -316,7 +322,7 @@ function Workspace({ user, onLogout }: { user: CurrentUser; onLogout: () => void
               <button className={tab === "chat" ? "active" : ""} onClick={() => setTab("chat")}><MessageSquareText size={17} />问答</button>
               <button className={tab === "settings" ? "active" : ""} onClick={() => setTab("settings")}><Bot size={17} />RAG</button>
             </div>
-            {tab === "documents" && <DocumentStage />}
+            {tab === "documents" && <DocumentStage selected={selected} />}
             {tab === "chat" && <ChatStage selected={selected} />}
             {tab === "settings" && <RagStage />}
           </section>
@@ -326,17 +332,95 @@ function Workspace({ user, onLogout }: { user: CurrentUser; onLogout: () => void
   );
 }
 
-function DocumentStage() {
+function DocumentStage({ selected }: { selected: KnowledgeBase | null }) {
+  const [documents, setDocuments] = useState<DocumentItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!selected) {
+      setDocuments([]);
+      return;
+    }
+    loadDocuments(selected.id);
+  }, [selected?.id]);
+
+  async function loadDocuments(kbId: number) {
+    setLoading(true);
+    setError("");
+    try {
+      const list = await api.listDocuments(kbId);
+      setDocuments(list);
+    } catch (exception) {
+      setError(exception instanceof Error ? exception.message : "加载文档失败");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function uploadFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !selected) return;
+
+    setUploading(true);
+    setError("");
+    try {
+      const uploaded = await api.uploadDocument(selected.id, file);
+      setDocuments((items) => [uploaded, ...items]);
+    } catch (exception) {
+      setError(exception instanceof Error ? exception.message : "上传失败");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  if (!selected) {
+    return (
+      <div className="stage-surface">
+        <UploadCloud size={34} />
+        <h3>文档入口</h3>
+        <p>请先创建或选择一个知识库。</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="stage-surface">
-      <UploadCloud size={34} />
-      <h3>文档入口</h3>
-      <p>上传、解析状态、失败重试会在文档模块接入后启用。</p>
-      <div className="pipeline">
-        <span>UPLOADED</span>
-        <span>PARSING</span>
-        <span>EMBEDDING</span>
-        <span>COMPLETED</span>
+    <div className="document-stage">
+      <label className="upload-zone">
+        <input
+          type="file"
+          accept=".pdf,.doc,.docx,.md,.txt"
+          onChange={uploadFile}
+          disabled={uploading}
+        />
+        {uploading ? <Loader2 className="spin" size={30} /> : <UploadCloud size={34} />}
+        <strong>{uploading ? "上传中" : "上传文档"}</strong>
+        <span>支持 PDF、Word、Markdown、TXT，当前只记录上传状态。</span>
+      </label>
+
+      {error && <div className="inline-error">{error}</div>}
+
+      <div className="document-list">
+        <div className="document-list-head">
+          <strong>文档列表</strong>
+          <button type="button" onClick={() => loadDocuments(selected.id)} disabled={loading}>
+            {loading ? <Loader2 className="spin" size={15} /> : "刷新"}
+          </button>
+        </div>
+        {loading && <div className="muted-document">正在加载文档</div>}
+        {!loading && documents.length === 0 && <div className="muted-document">还没有上传文档</div>}
+        {documents.map((document) => (
+          <div className="document-row" key={document.id}>
+            <FileText size={18} />
+            <div>
+              <strong>{document.fileName}</strong>
+              <span>{formatFileSize(document.fileSize)} · {document.fileType.toUpperCase()}</span>
+            </div>
+            <em>{document.status}</em>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -361,6 +445,12 @@ function RagStage() {
       <div><strong>Scope</strong><span>kb_id</span></div>
     </div>
   );
+}
+
+function formatFileSize(size: number) {
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / 1024 / 1024).toFixed(1)} MB`;
 }
 
 createRoot(document.getElementById("root")!).render(

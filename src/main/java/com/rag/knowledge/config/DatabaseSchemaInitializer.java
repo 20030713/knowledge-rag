@@ -22,6 +22,7 @@ public class DatabaseSchemaInitializer implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         createUserTable();
         createKnowledgeBaseTable();
+        createDocumentTable();
         log.info("Database schema checked");
     }
 
@@ -51,6 +52,26 @@ public class DatabaseSchemaInitializer implements ApplicationRunner {
                   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                   KEY `idx_kb_user_id` (`user_id`),
                   UNIQUE KEY `uk_kb_user_name` (`user_id`, `name`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """);
+    }
+
+    private void createDocumentTable() {
+        jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS `document` (
+                  `id` BIGINT NOT NULL PRIMARY KEY,
+                  `user_id` BIGINT NOT NULL,
+                  `kb_id` BIGINT NOT NULL,
+                  `file_name` VARCHAR(255) NOT NULL,
+                  `file_type` VARCHAR(32) NOT NULL,
+                  `file_url` VARCHAR(512) NOT NULL,
+                  `file_size` BIGINT NOT NULL,
+                  `status` VARCHAR(32) NOT NULL,
+                  `error_msg` TEXT DEFAULT NULL,
+                  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                  KEY `idx_doc_user_kb` (`user_id`, `kb_id`),
+                  KEY `idx_doc_status` (`status`)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
                 """);
     }

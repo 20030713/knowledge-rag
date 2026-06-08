@@ -30,6 +30,7 @@ mvn spring-boot:run
 
 - `user`
 - `knowledge_base`
+- `document`
 
 如果本地数据库还不存在，JDBC URL 需要带上：
 
@@ -123,6 +124,33 @@ Content-Type: application/json
 
 ```http
 DELETE /api/kb/{id}
+Authorization: Bearer <token>
+```
+
+## 文档接口
+
+上传文档：
+
+```http
+POST /api/doc/upload
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+
+kbId=<knowledgeBaseId>
+file=<pdf/doc/docx/md/txt>
+```
+
+查询知识库文档列表：
+
+```http
+GET /api/doc?kbId={knowledgeBaseId}
+Authorization: Bearer <token>
+```
+
+查询文档状态：
+
+```http
+GET /api/doc/{id}/status
 Authorization: Bearer <token>
 ```
 
