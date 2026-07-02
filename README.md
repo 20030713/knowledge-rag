@@ -19,16 +19,22 @@
     <td width="50%" align="center"><strong>知识库工作台</strong></td>
   </tr>
   <tr>
-    <td><img src="docs/images/login-preview.svg" alt="登录与注册界面"></td>
-    <td><img src="docs/images/workspace-preview.svg" alt="知识库工作台"></td>
+    <td><img src="docs/images/login-preview.png" alt="登录与注册界面"></td>
+    <td><img src="docs/images/workspace-preview.png" alt="知识库工作台"></td>
   </tr>
   <tr>
     <td width="50%" align="center"><strong>流式问答与引用溯源</strong></td>
-    <td width="50%" align="center"><strong>任务中心与系统监控</strong></td>
+    <td width="50%" align="center"><strong>异步任务中心</strong></td>
   </tr>
   <tr>
-    <td><img src="docs/images/rag-preview.svg" alt="RAG 问答与引用溯源"></td>
-    <td><img src="docs/images/dashboard-preview.svg" alt="任务中心与系统监控"></td>
+    <td><img src="docs/images/rag-preview.png" alt="RAG 问答与引用溯源"></td>
+    <td><img src="docs/images/tasks-preview.png" alt="异步任务中心"></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><strong>系统监控与运行诊断</strong></td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="docs/images/dashboard-preview.png" alt="系统监控与运行诊断"></td>
   </tr>
 </table>
 
