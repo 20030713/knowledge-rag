@@ -11,7 +11,8 @@ frontend-*.png
 .vscode/
 
 .env
-.env.local*
+.env.*
+!.env.production.example
 uploads/
 logs/
 
