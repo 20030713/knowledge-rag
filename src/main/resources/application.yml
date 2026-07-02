@@ -6,14 +6,14 @@ spring:
     name: knowledge-rag
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/knowledge_rag?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
-    username: root
-    password: root
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:knowledge_rag}?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USERNAME:root}
+    password: ${MYSQL_PASSWORD:root}
   data:
     redis:
-      host: localhost
-      port: 6379
-      database: 0
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      database: ${REDIS_DATABASE:0}
 
 mybatis-plus:
   configuration:
@@ -27,8 +27,54 @@ knife4j:
 
 app:
   jwt:
-    secret: "knowledge-rag-demo-secret-key-must-be-at-least-32-bytes"
-    expire-hours: 24
+    secret: ${JWT_SECRET:knowledge-rag-demo-secret-key-must-be-at-least-32-bytes}
+    expire-hours: ${JWT_EXPIRE_HOURS:24}
   upload:
-    root-path: uploads
-    max-size-mb: 20
+    root-path: ${UPLOAD_ROOT_PATH:uploads}
+    max-size-mb: ${UPLOAD_MAX_SIZE_MB:20}
+  rate-limit:
+    enabled: true
+    login:
+      limit: 10
+      window-seconds: 60
+    rag-ask:
+      limit: 20
+      window-seconds: 60
+  rag-cache:
+    enabled: true
+    ttl-minutes: 10
+  chat-model:
+    enabled: ${CHAT_MODEL_ENABLED:false}
+    base-url: ${CHAT_MODEL_BASE_URL:https://api.deepseek.com}
+    endpoint-path: ${CHAT_MODEL_ENDPOINT_PATH:/v1/chat/completions}
+    api-key: ${CHAT_MODEL_API_KEY:}
+    model: ${CHAT_MODEL_NAME:deepseek-v4-pro}
+    timeout-seconds: ${CHAT_MODEL_TIMEOUT_SECONDS:30}
+    max-context-chars: ${CHAT_MODEL_MAX_CONTEXT_CHARS:6000}
+    temperature: ${CHAT_MODEL_TEMPERATURE:0.2}
+    thinking-enabled: ${CHAT_MODEL_THINKING_ENABLED:true}
+    reasoning-effort: ${CHAT_MODEL_REASONING_EFFORT:high}
+  embedding:
+    enabled: ${EMBEDDING_MODEL_ENABLED:false}
+    base-url: ${EMBEDDING_MODEL_BASE_URL:https://api.openai.com}
+    endpoint-path: ${EMBEDDING_MODEL_ENDPOINT_PATH:/v1/embeddings}
+    api-key: ${EMBEDDING_MODEL_API_KEY:}
+    model: ${EMBEDDING_MODEL_NAME:text-embedding-3-small}
+    timeout-seconds: ${EMBEDDING_MODEL_TIMEOUT_SECONDS:30}
+    dimensions: ${EMBEDDING_MODEL_DIMENSIONS:1536}
+  vector-search:
+    top-k: 5
+    max-chunks-to-scan: 200
+    dimensions: 256
+    vector-weight: 0.7
+    keyword-weight: 0.3
+  vector-store:
+    pgvector:
+      enabled: ${PGVECTOR_ENABLED:false}
+      url: ${PGVECTOR_URL:jdbc:postgresql://localhost:5432/knowledge_vectors}
+      username: ${PGVECTOR_USERNAME:postgres}
+      password: ${PGVECTOR_PASSWORD:postgres}
+      table-name: ${PGVECTOR_TABLE_NAME:document_chunk_vector}
+      initialize-schema: ${PGVECTOR_INITIALIZE_SCHEMA:true}
+      dimensions: ${PGVECTOR_DIMENSIONS:1024}
+      candidate-multiplier: ${PGVECTOR_CANDIDATE_MULTIPLIER:4}

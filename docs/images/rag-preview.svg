@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <rect width="1280" height="720" fill="#f3f0e8"/>
+  <rect x="42" y="36" width="1196" height="648" rx="8" fill="#fffdf8" stroke="#d7d0c2"/>
+  <text x="72" y="86" fill="#18201c" font-size="28" font-weight="800" font-family="Segoe UI">RAG 问答与引用来源</text>
+  <rect x="72" y="122" width="820" height="78" fill="#fbf8f0" stroke="#ded7ca"/>
+  <text x="96" y="154" fill="#18201c" font-size="18" font-weight="700" font-family="Segoe UI">Java 实习项目资料库</text>
+  <text x="96" y="182" fill="#68736e" font-size="14" font-family="Segoe UI">基于已解析切片进行本地向量检索问答</text>
+  <rect x="72" y="222" width="820" height="192" fill="#fffdf8" stroke="#ded7ca"/>
+  <text x="96" y="262" fill="#18201c" font-size="18" font-weight="800" font-family="Segoe UI">回答</text>
+  <text x="770" y="262" text-anchor="end" fill="#68736e" font-size="14" font-family="Segoe UI">本地向量检索 + 关键词混合排序 · 5 个引用片段</text>
+  <text x="96" y="304" fill="#18201c" font-size="16" font-weight="800" font-family="Segoe UI">结论</text>
+  <text x="96" y="336" fill="#333d38" font-size="15" font-family="Segoe UI">当前知识库命中了 5 个相关片段，可以优先参考下方内容。</text>
+  <text x="96" y="374" fill="#18201c" font-size="16" font-weight="800" font-family="Segoe UI">要点</text>
+  <text x="120" y="402" fill="#333d38" font-size="15" font-family="Segoe UI">1. Redis 模块包含限流、问答缓存和文档解析分布式锁。</text>
+  <rect x="72" y="438" width="820" height="186" fill="#fffdf8" stroke="#ded7ca"/>
+  <text x="96" y="478" fill="#18201c" font-size="18" font-weight="800" font-family="Segoe UI">引用来源</text>
+  <rect x="96" y="504" width="748" height="82" fill="#fbf8f0" stroke="#ece5da"/>
+  <text x="118" y="532" fill="#18201c" font-size="15" font-weight="700" font-family="Segoe UI">#1 Redis模块设计说明.md</text>
+  <text x="742" y="532" text-anchor="end" fill="#68736e" font-size="13" font-family="Segoe UI">chunk 3 · final 0.87</text>
+  <rect x="118" y="548" width="76" height="24" fill="#fffdf8" stroke="#d7d0c2"/>
+  <text x="156" y="565" text-anchor="middle" fill="#53615b" font-size="12" font-family="Consolas">向量 0.72</text>
+  <rect x="204" y="548" width="88" height="24" fill="#fffdf8" stroke="#d7d0c2"/>
+  <text x="248" y="565" text-anchor="middle" fill="#53615b" font-size="12" font-family="Consolas">关键词 1.00</text>
+  <text x="118" y="610" fill="#333d38" font-size="14" font-family="Segoe UI">系统使用 Redis INCR + EXPIRE 实现固定窗口限流...</text>
+  <rect x="930" y="122" width="260" height="502" fill="#fbf8f0" stroke="#ded7ca"/>
+  <text x="956" y="164" fill="#18201c" font-size="18" font-weight="800" font-family="Segoe UI">回答反馈</text>
+  <rect x="956" y="190" width="100" height="34" fill="#e3efe9" stroke="#1d6b5b"/>
+  <text x="1006" y="212" text-anchor="middle" fill="#1d6b5b" font-size="14" font-family="Segoe UI">👍 有帮助</text>
+  <rect x="1068" y="190" width="100" height="34" fill="#fff2ee" stroke="#e4b8ac"/>
+  <text x="1118" y="212" text-anchor="middle" fill="#a34232" font-size="14" font-family="Segoe UI">👎 没帮助</text>
+  <text x="956" y="278" fill="#18201c" font-size="18" font-weight="800" font-family="Segoe UI">问答历史</text>
+  <rect x="956" y="304" width="206" height="54" fill="#fffdf8" stroke="#ece5da"/>
+  <text x="972" y="328" fill="#18201c" font-size="13" font-weight="700" font-family="Segoe UI">Redis 在项目里怎么用？</text>
+  <text x="972" y="348" fill="#68736e" font-size="12" font-family="Segoe UI">5 个引用片段 · 有帮助</text>
+</svg>

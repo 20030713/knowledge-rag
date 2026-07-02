@@ -17,6 +17,8 @@ public class User {
 
     private String role;
 
+    private Boolean enabled;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
@@ -51,6 +53,14 @@ public class User {
 
     public void setRole(String role) {
         this.role = role;
+    }
+
+    public Boolean getEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(Boolean enabled) {
+        this.enabled = enabled;
     }
 
     public LocalDateTime getCreatedAt() {

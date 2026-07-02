@@ -14,6 +14,10 @@ public final class UserContext {
         LOGIN_USER.set(loginUser);
     }
 
+    public static LoginUser get() {
+        return LOGIN_USER.get();
+    }
+
     public static LoginUser getRequired() {
         LoginUser loginUser = LOGIN_USER.get();
         if (loginUser == null) {

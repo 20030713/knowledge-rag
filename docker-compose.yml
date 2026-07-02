@@ -8,13 +8,18 @@ services:
       MYSQL_DATABASE: knowledge_rag
       TZ: Asia/Shanghai
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   redis:
     image: redis:7.2
@@ -24,7 +29,92 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  pgvector:
+    image: pgvector/pgvector:pg16
+    container_name: knowledge-rag-pgvector
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: knowledge_vectors
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      TZ: Asia/Shanghai
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgvector_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d knowledge_vectors"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: knowledge-rag-backend
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: knowledge_rag
+      MYSQL_USERNAME: root
+      MYSQL_PASSWORD: root
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DATABASE: 0
+      CHAT_MODEL_ENABLED: ${CHAT_MODEL_ENABLED:-false}
+      CHAT_MODEL_BASE_URL: ${CHAT_MODEL_BASE_URL:-https://api.deepseek.com}
+      CHAT_MODEL_ENDPOINT_PATH: ${CHAT_MODEL_ENDPOINT_PATH:-/v1/chat/completions}
+      CHAT_MODEL_API_KEY: ${CHAT_MODEL_API_KEY:-}
+      CHAT_MODEL_NAME: ${CHAT_MODEL_NAME:-deepseek-v4-pro}
+      CHAT_MODEL_THINKING_ENABLED: ${CHAT_MODEL_THINKING_ENABLED:-true}
+      CHAT_MODEL_REASONING_EFFORT: ${CHAT_MODEL_REASONING_EFFORT:-high}
+      EMBEDDING_MODEL_ENABLED: ${EMBEDDING_MODEL_ENABLED:-false}
+      EMBEDDING_MODEL_BASE_URL: ${EMBEDDING_MODEL_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
+      EMBEDDING_MODEL_ENDPOINT_PATH: ${EMBEDDING_MODEL_ENDPOINT_PATH:-/embeddings}
+      EMBEDDING_MODEL_API_KEY: ${EMBEDDING_MODEL_API_KEY:-}
+      EMBEDDING_MODEL_NAME: ${EMBEDDING_MODEL_NAME:-text-embedding-v4}
+      EMBEDDING_MODEL_DIMENSIONS: ${EMBEDDING_MODEL_DIMENSIONS:-1024}
+      PGVECTOR_ENABLED: ${PGVECTOR_ENABLED:-false}
+      PGVECTOR_URL: ${PGVECTOR_URL:-jdbc:postgresql://pgvector:5432/knowledge_vectors}
+      PGVECTOR_USERNAME: ${PGVECTOR_USERNAME:-postgres}
+      PGVECTOR_PASSWORD: ${PGVECTOR_PASSWORD:-postgres}
+      PGVECTOR_DIMENSIONS: ${PGVECTOR_DIMENSIONS:-1024}
+      UPLOAD_ROOT_PATH: /app/uploads
+      JAVA_OPTS: "-Xms256m -Xmx768m"
+    ports:
+      - "8080:8080"
+    volumes:
+      - upload_data:/app/uploads
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      pgvector:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: knowledge-rag-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
 
 volumes:
   mysql_data:
   redis_data:
+  pgvector_data:
+  upload_data:

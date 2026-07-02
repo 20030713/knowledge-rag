@@ -11,6 +11,9 @@ public record DocumentResponse(
         Long fileSize,
         String status,
         String errorMsg,
+        Integer retryCount,
+        Integer chunkCount,
+        Long parseDurationMs,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {

@@ -1,0 +1,158 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: knowledge-rag-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?请在.env中配置MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: knowledge_rag
+      MYSQL_USER: knowledge_rag
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?请在.env中配置MYSQL_PASSWORD}
+      TZ: Asia/Shanghai
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --innodb-buffer-pool-size=256M
+      - --max-connections=50
+      - --performance-schema=OFF
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: knowledge-rag-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "128mb", "--maxmemory-policy", "volatile-lru"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  pgvector:
+    image: pgvector/pgvector:pg16
+    container_name: knowledge-rag-pgvector
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: knowledge_vectors
+      POSTGRES_USER: knowledge_rag
+      POSTGRES_PASSWORD: ${PGVECTOR_PASSWORD:?请在.env中配置PGVECTOR_PASSWORD}
+      TZ: Asia/Shanghai
+    command: ["postgres", "-c", "shared_buffers=96MB", "-c", "max_connections=30"]
+    volumes:
+      - pgvector_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  backend:
+    image: knowledge-rag-backend:prod
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: knowledge-rag-backend
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: knowledge_rag
+      MYSQL_USERNAME: knowledge_rag
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?请在.env中配置MYSQL_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DATABASE: 0
+      JWT_SECRET: ${JWT_SECRET:?请在.env中配置JWT_SECRET}
+      JWT_EXPIRE_HOURS: ${JWT_EXPIRE_HOURS:-24}
+      CHAT_MODEL_ENABLED: ${CHAT_MODEL_ENABLED:-false}
+      CHAT_MODEL_BASE_URL: ${CHAT_MODEL_BASE_URL:-https://api.deepseek.com}
+      CHAT_MODEL_ENDPOINT_PATH: ${CHAT_MODEL_ENDPOINT_PATH:-/v1/chat/completions}
+      CHAT_MODEL_API_KEY: ${CHAT_MODEL_API_KEY:-}
+      CHAT_MODEL_NAME: ${CHAT_MODEL_NAME:-deepseek-v4-pro}
+      CHAT_MODEL_TIMEOUT_SECONDS: ${CHAT_MODEL_TIMEOUT_SECONDS:-45}
+      CHAT_MODEL_THINKING_ENABLED: ${CHAT_MODEL_THINKING_ENABLED:-false}
+      CHAT_MODEL_REASONING_EFFORT: ${CHAT_MODEL_REASONING_EFFORT:-high}
+      EMBEDDING_MODEL_ENABLED: ${EMBEDDING_MODEL_ENABLED:-false}
+      EMBEDDING_MODEL_BASE_URL: ${EMBEDDING_MODEL_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
+      EMBEDDING_MODEL_ENDPOINT_PATH: ${EMBEDDING_MODEL_ENDPOINT_PATH:-/embeddings}
+      EMBEDDING_MODEL_API_KEY: ${EMBEDDING_MODEL_API_KEY:-}
+      EMBEDDING_MODEL_NAME: ${EMBEDDING_MODEL_NAME:-text-embedding-v4}
+      EMBEDDING_MODEL_TIMEOUT_SECONDS: ${EMBEDDING_MODEL_TIMEOUT_SECONDS:-45}
+      EMBEDDING_MODEL_DIMENSIONS: ${EMBEDDING_MODEL_DIMENSIONS:-1024}
+      PGVECTOR_ENABLED: ${PGVECTOR_ENABLED:-true}
+      PGVECTOR_URL: jdbc:postgresql://pgvector:5432/knowledge_vectors
+      PGVECTOR_USERNAME: knowledge_rag
+      PGVECTOR_PASSWORD: ${PGVECTOR_PASSWORD:?请在.env中配置PGVECTOR_PASSWORD}
+      PGVECTOR_DIMENSIONS: ${PGVECTOR_DIMENSIONS:-1024}
+      UPLOAD_ROOT_PATH: /app/uploads
+      UPLOAD_MAX_SIZE_MB: ${UPLOAD_MAX_SIZE_MB:-20}
+      JAVA_OPTS: "-Xms128m -Xmx512m -XX:MaxMetaspaceSize=160m -XX:+UseSerialGC"
+    volumes:
+      - upload_data:/app/uploads
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      pgvector:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  frontend:
+    image: knowledge-rag-frontend:prod
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: knowledge-rag-frontend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${FRONTEND_HOST_PORT:-15173}:80"
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1/ >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  mysql_data:
+  redis_data:
+  pgvector_data:
+  upload_data:

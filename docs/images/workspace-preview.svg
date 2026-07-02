@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <rect width="1280" height="720" fill="#f3f0e8"/>
+  <path d="M0 0H1280V720H0z" fill="#f3f0e8"/>
+  <g opacity=".12" stroke="#1e5c50"><path d="M0 34H1280M0 68H1280M0 102H1280M0 136H1280M0 170H1280M0 204H1280M0 238H1280M0 272H1280M0 306H1280M0 340H1280M0 374H1280M0 408H1280M0 442H1280M0 476H1280M0 510H1280M0 544H1280M0 578H1280M0 612H1280M0 646H1280M0 680H1280"/><path d="M34 0V720M68 0V720M102 0V720M136 0V720M170 0V720M204 0V720M238 0V720M272 0V720M306 0V720M340 0V720M374 0V720M408 0V720M442 0V720M476 0V720M510 0V720M544 0V720M578 0V720M612 0V720M646 0V720M680 0V720M714 0V720M748 0V720M782 0V720M816 0V720M850 0V720M884 0V720M918 0V720M952 0V720M986 0V720M1020 0V720M1054 0V720M1088 0V720M1122 0V720M1156 0V720M1190 0V720M1224 0V720M1258 0V720"/></g>
+  <rect width="292" height="720" fill="#18201c"/>
+  <text x="28" y="48" fill="#fffdf7" font-size="20" font-weight="800" font-family="Segoe UI">▣ Knowledge RAG</text>
+  <rect x="24" y="86" width="244" height="48" fill="#f0c36a"/>
+  <text x="146" y="116" text-anchor="middle" fill="#18201c" font-size="16" font-weight="700" font-family="Segoe UI">＋ 新建知识库</text>
+  <rect x="24" y="154" width="244" height="42" fill="#222c27" stroke="#46514c"/>
+  <text x="48" y="180" fill="#b8c0bb" font-size="14" font-family="Segoe UI">搜索知识库</text>
+  <rect x="24" y="222" width="244" height="48" fill="#fffdf7"/>
+  <text x="52" y="253" fill="#18201c" font-size="15" font-family="Segoe UI">Java 实习项目资料库</text>
+  <rect x="24" y="286" width="244" height="48" fill="#222c27" stroke="#46514c"/>
+  <text x="52" y="317" fill="#efece2" font-size="15" font-family="Segoe UI">公司制度知识库</text>
+  <text x="24" y="660" fill="#fffdf7" font-size="16" font-weight="700" font-family="Segoe UI">demo_user</text>
+  <text x="24" y="684" fill="#b8c0bb" font-size="13" font-family="Segoe UI">USER</text>
+  <g transform="translate(324 38)">
+    <text x="0" y="0" fill="#727a75" font-size="14" font-family="Segoe UI">知识库</text>
+    <text x="0" y="40" fill="#18201c" font-size="34" font-weight="800" font-family="Segoe UI">Java 实习项目资料库</text>
+    <rect x="820" y="0" width="130" height="38" fill="#e3efe9" stroke="#c4ded4"/>
+    <text x="885" y="24" text-anchor="middle" fill="#1d6b5b" font-size="14" font-family="Segoe UI">✓ 已连接后端</text>
+  </g>
+  <rect x="324" y="132" width="350" height="500" rx="8" fill="#fffdf8" stroke="#d7d0c2"/>
+  <text x="350" y="176" fill="#18201c" font-size="18" font-weight="800" font-family="Segoe UI">基础信息</text>
+  <text x="350" y="226" fill="#46514c" font-size="14" font-family="Segoe UI">名称</text>
+  <rect x="350" y="240" width="298" height="46" fill="#fffdf8" stroke="#d4cec3"/>
+  <text x="366" y="269" fill="#18201c" font-size="15" font-family="Segoe UI">Java 实习项目资料库</text>
+  <text x="350" y="328" fill="#46514c" font-size="14" font-family="Segoe UI">描述</text>
+  <rect x="350" y="342" width="298" height="110" fill="#fffdf8" stroke="#d4cec3"/>
+  <text x="366" y="374" fill="#53615b" font-size="15" font-family="Segoe UI">用于整理项目文档和面试资料</text>
+  <rect x="350" y="476" width="84" height="44" fill="#1e5c50"/>
+  <text x="392" y="504" text-anchor="middle" fill="#fffdf7" font-size="15" font-weight="700" font-family="Segoe UI">保存</text>
+  <rect x="696" y="132" width="520" height="500" rx="8" fill="#fffdf8" stroke="#d7d0c2"/>
+  <rect x="720" y="158" width="70" height="38" fill="#183d35"/>
+  <text x="755" y="182" text-anchor="middle" fill="#fffdf7" font-size="15" font-family="Segoe UI">文档</text>
+  <rect x="802" y="158" width="70" height="38" fill="#fffdf8" stroke="#d7d0c2"/>
+  <text x="837" y="182" text-anchor="middle" fill="#5e6862" font-size="15" font-family="Segoe UI">问答</text>
+  <rect x="884" y="158" width="70" height="38" fill="#fffdf8" stroke="#d7d0c2"/>
+  <text x="919" y="182" text-anchor="middle" fill="#5e6862" font-size="15" font-family="Segoe UI">RAG</text>
+  <rect x="720" y="224" width="470" height="120" fill="#fbf8f0" stroke="#b9b1a5" stroke-dasharray="5 4"/>
+  <text x="955" y="280" text-anchor="middle" fill="#18201c" font-size="22" font-weight="800" font-family="Segoe UI">上传文档</text>
+  <text x="955" y="310" text-anchor="middle" fill="#68736e" font-size="14" font-family="Segoe UI">支持 PDF、Word、Markdown、TXT</text>
+  <rect x="720" y="374" width="470" height="70" fill="#fffdf8" stroke="#ded7ca"/>
+  <text x="748" y="414" fill="#18201c" font-size="16" font-weight="700" font-family="Segoe UI">企业知识库RAG问答系统_实现文档.md</text>
+  <text x="1070" y="414" fill="#1d6b5b" font-size="13" font-family="Consolas">COMPLETED</text>
+</svg>

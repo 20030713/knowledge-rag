@@ -11,5 +11,22 @@ frontend-*.png
 .vscode/
 
 .env
+.env.local*
 uploads/
 logs/
+
+# Local tooling and generated artifacts
+.pico/
+output/
+tmp/
+*.zip
+*.tar
+*.tar.gz
+*.docx
+
+# Personal preparation notes (not part of the public project)
+docs/新对话上下文交接说明.md
+docs/简历写法.md
+docs/面试讲解稿.md
+docs/面试讲解总文档.md
+docs/面试速查卡.md

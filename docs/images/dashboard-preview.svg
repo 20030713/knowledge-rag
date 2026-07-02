@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <rect width="1280" height="720" fill="#f3f0e8"/>
+  <rect x="48" y="42" width="1184" height="636" rx="8" fill="#fffdf8" stroke="#d7d0c2"/>
+  <text x="78" y="92" fill="#18201c" font-size="30" font-weight="800" font-family="Segoe UI">仪表盘与任务中心</text>
+  <g transform="translate(78 128)">
+    <rect width="200" height="110" fill="#fbf8f0" stroke="#ded7ca"/>
+    <text x="24" y="40" fill="#69716d" font-size="14" font-family="Segoe UI">知识库</text>
+    <text x="24" y="82" fill="#17211d" font-size="34" font-weight="800" font-family="Segoe UI">3</text>
+    <rect x="220" width="200" height="110" fill="#fbf8f0" stroke="#ded7ca"/>
+    <text x="244" y="40" fill="#69716d" font-size="14" font-family="Segoe UI">文档</text>
+    <text x="244" y="82" fill="#17211d" font-size="34" font-weight="800" font-family="Segoe UI">12</text>
+    <rect x="440" width="200" height="110" fill="#fbf8f0" stroke="#ded7ca"/>
+    <text x="464" y="40" fill="#69716d" font-size="14" font-family="Segoe UI">切片</text>
+    <text x="464" y="82" fill="#17211d" font-size="34" font-weight="800" font-family="Segoe UI">186</text>
+    <rect x="660" width="200" height="110" fill="#fbf8f0" stroke="#ded7ca"/>
+    <text x="684" y="40" fill="#69716d" font-size="14" font-family="Segoe UI">问答</text>
+    <text x="684" y="82" fill="#17211d" font-size="34" font-weight="800" font-family="Segoe UI">38</text>
+    <rect x="880" width="200" height="110" fill="#fbf8f0" stroke="#ded7ca"/>
+    <text x="904" y="40" fill="#69716d" font-size="14" font-family="Segoe UI">反馈</text>
+    <text x="904" y="82" fill="#17211d" font-size="34" font-weight="800" font-family="Segoe UI">21</text>
+  </g>
+  <rect x="78" y="264" width="530" height="136" fill="#fffdf8" stroke="#ded7ca"/>
+  <text x="102" y="304" fill="#18201c" font-size="18" font-weight="800" font-family="Segoe UI">回答质量反馈</text>
+  <text x="102" y="332" fill="#68736e" font-size="14" font-family="Segoe UI">有帮助 18 · 没帮助 3</text>
+  <rect x="102" y="358" width="440" height="12" fill="#ece5da"/>
+  <rect x="102" y="358" width="377" height="12" fill="#1d6b5b"/>
+  <rect x="640" y="264" width="520" height="330" fill="#fffdf8" stroke="#ded7ca"/>
+  <text x="664" y="304" fill="#18201c" font-size="18" font-weight="800" font-family="Segoe UI">解析任务中心</text>
+  <rect x="664" y="328" width="62" height="30" fill="#194d3f"/>
+  <text x="695" y="348" text-anchor="middle" fill="#fffdf8" font-size="13" font-family="Segoe UI">全部</text>
+  <rect x="736" y="328" width="72" height="30" fill="#fffdf8" stroke="#d7d0c2"/>
+  <text x="772" y="348" text-anchor="middle" fill="#333d38" font-size="13" font-family="Segoe UI">解析中</text>
+  <rect x="818" y="328" width="62" height="30" fill="#fffdf8" stroke="#d7d0c2"/>
+  <text x="849" y="348" text-anchor="middle" fill="#333d38" font-size="13" font-family="Segoe UI">失败</text>
+  <rect x="664" y="384" width="452" height="68" fill="#fbf8f0" stroke="#ece5da"/>
+  <text x="684" y="414" fill="#18201c" font-size="15" font-weight="700" font-family="Segoe UI">企业知识库RAG问答系统_实现文档.md</text>
+  <text x="684" y="438" fill="#68736e" font-size="13" font-family="Segoe UI">06/14 15:26 · 失败 0/3 次</text>
+  <rect x="1030" y="404" width="86" height="26" fill="#e3efe9"/>
+  <text x="1073" y="422" text-anchor="middle" fill="#1d6b5b" font-size="12" font-family="Consolas">COMPLETED</text>
+  <rect x="664" y="466" width="452" height="68" fill="#fbf8f0" stroke="#ece5da"/>
+  <text x="684" y="496" fill="#18201c" font-size="15" font-weight="700" font-family="Segoe UI">Redis模块设计说明.md</text>
+  <text x="684" y="520" fill="#68736e" font-size="13" font-family="Segoe UI">06/14 15:28 · 失败 1/3 次</text>
+  <rect x="1030" y="486" width="70" height="26" fill="#fff2ee"/>
+  <text x="1065" y="504" text-anchor="middle" fill="#a34232" font-size="12" font-family="Consolas">FAILED</text>
+  <rect x="78" y="426" width="530" height="168" fill="#fffdf8" stroke="#ded7ca"/>
+  <text x="102" y="466" fill="#18201c" font-size="18" font-weight="800" font-family="Segoe UI">文档解析状态</text>
+  <text x="102" y="506" fill="#333d38" font-size="14" font-family="Segoe UI">已完成</text>
+  <rect x="180" y="496" width="360" height="10" fill="#ece5da"/>
+  <rect x="180" y="496" width="300" height="10" fill="#1e6c58"/>
+  <text x="102" y="546" fill="#333d38" font-size="14" font-family="Segoe UI">失败</text>
+  <rect x="180" y="536" width="360" height="10" fill="#ece5da"/>
+  <rect x="180" y="536" width="58" height="10" fill="#a34232"/>
+</svg>

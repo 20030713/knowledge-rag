@@ -27,6 +27,12 @@ public class Document {
 
     private String errorMsg;
 
+    private Integer retryCount;
+
+    private Integer chunkCount;
+
+    private Long parseDurationMs;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
@@ -101,6 +107,30 @@ public class Document {
 
     public void setErrorMsg(String errorMsg) {
         this.errorMsg = errorMsg;
+    }
+
+    public Integer getRetryCount() {
+        return retryCount;
+    }
+
+    public void setRetryCount(Integer retryCount) {
+        this.retryCount = retryCount;
+    }
+
+    public Integer getChunkCount() {
+        return chunkCount;
+    }
+
+    public void setChunkCount(Integer chunkCount) {
+        this.chunkCount = chunkCount;
+    }
+
+    public Long getParseDurationMs() {
+        return parseDurationMs;
+    }
+
+    public void setParseDurationMs(Long parseDurationMs) {
+        this.parseDurationMs = parseDurationMs;
     }
 
     public LocalDateTime getCreatedAt() {

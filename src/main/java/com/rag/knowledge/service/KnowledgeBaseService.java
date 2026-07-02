@@ -1,6 +1,11 @@
 package com.rag.knowledge.service;
 
 import com.rag.knowledge.dto.kb.KnowledgeBaseCreateRequest;
+import com.rag.knowledge.dto.kb.KnowledgeBaseBackupResponse;
+import com.rag.knowledge.dto.kb.KnowledgeBaseImportResponse;
+import com.rag.knowledge.dto.kb.KnowledgeBaseMemberRequest;
+import com.rag.knowledge.dto.kb.KnowledgeBaseMemberResponse;
+import com.rag.knowledge.dto.kb.KnowledgeBaseMemberUpdateRequest;
 import com.rag.knowledge.dto.kb.KnowledgeBaseResponse;
 import com.rag.knowledge.dto.kb.KnowledgeBaseUpdateRequest;
 import java.util.List;
@@ -16,4 +21,16 @@ public interface KnowledgeBaseService {
     KnowledgeBaseResponse update(Long id, KnowledgeBaseUpdateRequest request);
 
     void delete(Long id);
+
+    List<KnowledgeBaseMemberResponse> listMembers(Long id);
+
+    KnowledgeBaseMemberResponse addMember(Long id, KnowledgeBaseMemberRequest request);
+
+    KnowledgeBaseMemberResponse updateMember(Long id, Long memberId, KnowledgeBaseMemberUpdateRequest request);
+
+    void removeMember(Long id, Long memberId);
+
+    KnowledgeBaseBackupResponse exportBackup(Long id);
+
+    KnowledgeBaseImportResponse importBackup(String jsonContent);
 }
