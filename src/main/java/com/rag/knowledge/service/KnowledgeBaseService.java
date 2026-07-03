@@ -3,6 +3,7 @@ package com.rag.knowledge.service;
 import com.rag.knowledge.dto.kb.KnowledgeBaseCreateRequest;
 import com.rag.knowledge.dto.kb.KnowledgeBaseBackupResponse;
 import com.rag.knowledge.dto.kb.KnowledgeBaseImportResponse;
+import com.rag.knowledge.dto.kb.KnowledgeBaseMemberCandidateResponse;
 import com.rag.knowledge.dto.kb.KnowledgeBaseMemberRequest;
 import com.rag.knowledge.dto.kb.KnowledgeBaseMemberResponse;
 import com.rag.knowledge.dto.kb.KnowledgeBaseMemberUpdateRequest;
@@ -23,6 +24,8 @@ public interface KnowledgeBaseService {
     void delete(Long id);
 
     List<KnowledgeBaseMemberResponse> listMembers(Long id);
+
+    List<KnowledgeBaseMemberCandidateResponse> searchMemberCandidates(Long id, String keyword, Integer limit);
 
     KnowledgeBaseMemberResponse addMember(Long id, KnowledgeBaseMemberRequest request);
 

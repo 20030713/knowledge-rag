@@ -38,6 +38,7 @@ import {
   KnowledgeBase,
   KnowledgeBaseIndexStatus,
   KnowledgeBaseMember,
+  KnowledgeBaseMemberCandidate,
   KnowledgeBaseRole,
   PromptTemplate,
   PromptTemplatePayload,
@@ -322,14 +323,36 @@ function Workspace({ user, onLogout }: { user: CurrentUser; onLogout: () => void
 
 function SharingPanel({ selected, onMembersChanged }: { selected: KnowledgeBase | null; onMembersChanged: () => Promise<void> }) {
   const [members, setMembers] = useState<KnowledgeBaseMember[]>([]);
+  const [candidates, setCandidates] = useState<KnowledgeBaseMemberCandidate[]>([]);
   const [username, setUsername] = useState("");
   const [role, setRole] = useState<KnowledgeBaseRole>("VIEWER");
   const [loading, setLoading] = useState(false);
+  const [searchingCandidates, setSearchingCandidates] = useState(false);
+  const [candidateOpen, setCandidateOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const canManage = canAdminKnowledgeBase(selected);
 
   useEffect(() => { if (selected) void loadMembers(selected.id); else setMembers([]); }, [selected?.id]);
+  useEffect(() => {
+    const keyword = username.trim();
+    if (!selected || !canManage || keyword.length < 2) {
+      setCandidates([]);
+      setSearchingCandidates(false);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      setSearchingCandidates(true);
+      api.searchKnowledgeBaseMemberCandidates(selected.id, keyword)
+        .then((items) => { if (!cancelled) setCandidates(items); })
+        .catch((exception) => { if (!cancelled) setError(exception instanceof Error ? exception.message : "搜索用户失败"); })
+        .finally(() => { if (!cancelled) setSearchingCandidates(false); });
+    }, 250);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [selected?.id, canManage, username]);
+
   async function loadMembers(kbId = selected?.id) {
     if (!kbId) return;
     setLoading(true);
@@ -339,10 +362,15 @@ function SharingPanel({ selected, onMembersChanged }: { selected: KnowledgeBase 
     event.preventDefault();
     if (!selected || !canManage || !username.trim()) return;
     setSaving(true);
+    setError("");
+    setMessage("");
     try {
-      await api.addKnowledgeBaseMember(selected.id, username.trim(), role);
+      const added = await api.addKnowledgeBaseMember(selected.id, username.trim(), role);
       setUsername("");
       setRole("VIEWER");
+      setCandidates([]);
+      setCandidateOpen(false);
+      setMessage(`已添加 ${added.username}`);
       await loadMembers(selected.id);
       await onMembersChanged();
     } catch (exception) { setError(exception instanceof Error ? exception.message : "操作失败"); } finally { setSaving(false); }
@@ -362,10 +390,32 @@ function SharingPanel({ selected, onMembersChanged }: { selected: KnowledgeBase 
     <section className="sharing-panel">
       <div className="panel-title"><ShieldCheck size={18} /><span>成员管理</span></div>
       {error && <div className="inline-error">{error}</div>}
+      {message && <div className="success-banner compact-banner">{message}</div>}
       <form className="member-form" onSubmit={addMember}>
-        <input value={username} onChange={(event) => setUsername(event.target.value)} disabled={!selected || !canManage || saving} placeholder="输入用户名" />
+        <div className="member-picker">
+          <input
+            value={username}
+            onChange={(event) => { setUsername(event.target.value); setCandidateOpen(true); setError(""); setMessage(""); }}
+            onFocus={() => setCandidateOpen(true)}
+            disabled={!selected || !canManage || saving}
+            placeholder="搜索已注册用户"
+            autoComplete="off"
+          />
+          {candidateOpen && username.trim().length >= 2 && <div className="member-suggestions" role="listbox" aria-label="可添加成员">
+            {searchingCandidates && <span><Loader2 className="spin" size={14} />正在搜索...</span>}
+            {!searchingCandidates && candidates.length === 0 && <span>没有可添加的已注册用户</span>}
+            {!searchingCandidates && candidates.map((candidate) => <button
+              type="button"
+              className="member-suggestion"
+              key={candidate.userId}
+              onClick={() => { setUsername(candidate.username); setCandidateOpen(false); }}
+            >
+              <strong>{candidate.username}</strong><small>选择</small>
+            </button>)}
+          </div>}
+        </div>
         <select value={role} onChange={(event) => setRole(event.target.value as KnowledgeBaseRole)} disabled={!selected || !canManage || saving}>{roleOptions(false)}</select>
-        <button type="submit" disabled={!selected || !canManage || saving}>添加成员</button>
+        <button type="submit" disabled={!selected || !canManage || saving || !username.trim()}>添加成员</button>
       </form>
       <div className="member-list">
         {loading && <div className="muted-row"><Loader2 className="spin" size={15} />正在加载成员...</div>}

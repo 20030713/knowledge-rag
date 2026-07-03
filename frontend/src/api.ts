@@ -106,6 +106,11 @@ export type KnowledgeBaseMember = {
   updatedAt: string;
 };
 
+export type KnowledgeBaseMemberCandidate = {
+  userId: string;
+  username: string;
+};
+
 export type KnowledgeBasePayload = {
   name: string;
   description?: string;
@@ -886,6 +891,10 @@ export const api = {
   },
   listKnowledgeBaseMembers(id: string) {
     return request<KnowledgeBaseMember[]>(`/api/kb/${id}/members`);
+  },
+  searchKnowledgeBaseMemberCandidates(id: string, keyword: string, limit = 10) {
+    const params = new URLSearchParams({ keyword, limit: String(limit) });
+    return request<KnowledgeBaseMemberCandidate[]>(`/api/kb/${id}/member-candidates?${params}`);
   },
   addKnowledgeBaseMember(id: string, username: string, role: KnowledgeBaseRole) {
     return request<KnowledgeBaseMember>(`/api/kb/${id}/members`, {

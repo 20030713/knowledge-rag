@@ -15,6 +15,7 @@ import com.rag.knowledge.domain.enums.KnowledgeBaseVisibility;
 import com.rag.knowledge.dto.kb.KnowledgeBaseCreateRequest;
 import com.rag.knowledge.dto.kb.KnowledgeBaseBackupResponse;
 import com.rag.knowledge.dto.kb.KnowledgeBaseImportResponse;
+import com.rag.knowledge.dto.kb.KnowledgeBaseMemberCandidateResponse;
 import com.rag.knowledge.dto.kb.KnowledgeBaseMemberRequest;
 import com.rag.knowledge.dto.kb.KnowledgeBaseMemberResponse;
 import com.rag.knowledge.dto.kb.KnowledgeBaseMemberUpdateRequest;
@@ -223,18 +224,50 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
     }
 
     @Override
+    public List<KnowledgeBaseMemberCandidateResponse> searchMemberCandidates(
+            Long id,
+            String keyword,
+            Integer limit
+    ) {
+        permissionService.requireAdmin(id);
+        String safeKeyword = keyword == null ? "" : keyword.trim();
+        if (safeKeyword.length() < 2) {
+            return List.of();
+        }
+        int safeLimit = Math.max(1, Math.min(limit == null ? 10 : limit, 20));
+        KnowledgeBase knowledgeBase = knowledgeBaseMapper.selectById(id);
+        Set<Long> excludedUserIds = memberMapper.selectList(new LambdaQueryWrapper<KnowledgeBaseMember>()
+                        .eq(KnowledgeBaseMember::getKbId, id))
+                .stream()
+                .map(KnowledgeBaseMember::getUserId)
+                .collect(Collectors.toSet());
+        excludedUserIds.add(knowledgeBase.getUserId());
+
+        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<User>()
+                .eq(User::getEnabled, true)
+                .like(User::getUsername, safeKeyword)
+                .notIn(User::getId, excludedUserIds)
+                .orderByAsc(User::getUsername)
+                .last("LIMIT " + safeLimit);
+        return userMapper.selectList(wrapper).stream()
+                .map(user -> new KnowledgeBaseMemberCandidateResponse(user.getId(), user.getUsername()))
+                .toList();
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public KnowledgeBaseMemberResponse addMember(Long id, KnowledgeBaseMemberRequest request) {
         permissionService.requireAdmin(id);
         KnowledgeBase knowledgeBase = knowledgeBaseMapper.selectById(id);
         User user = userMapper.selectOne(new LambdaQueryWrapper<User>()
                 .eq(User::getUsername, request.username().trim())
+                .eq(User::getEnabled, true)
                 .last("LIMIT 1"));
         if (user == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "user not found");
+            throw new BusinessException(ErrorCode.NOT_FOUND, "未找到已启用的注册用户");
         }
         if (knowledgeBase.getUserId().equals(user.getId())) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "owner already has full access");
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "知识库拥有者已经具备完整权限");
         }
         KnowledgeBaseMemberRole role = memberRole(request.role());
         KnowledgeBaseMember member = memberMapper.selectOne(new LambdaQueryWrapper<KnowledgeBaseMember>()
@@ -516,7 +549,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
                 .eq(KnowledgeBaseMember::getId, memberId)
                 .last("LIMIT 1"));
         if (member == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "member not found");
+            throw new BusinessException(ErrorCode.NOT_FOUND, "知识库成员不存在");
         }
         return member;
     }
@@ -526,10 +559,10 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
         try {
             role = KnowledgeBaseMemberRole.from(value);
         } catch (IllegalArgumentException exception) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "role must be ADMIN, EDITOR or VIEWER");
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "成员角色必须为管理员、编辑者或只读成员");
         }
         if (role == KnowledgeBaseMemberRole.OWNER) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "member role cannot be OWNER");
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "不能将普通成员设置为知识库拥有者");
         }
         return role;
     }

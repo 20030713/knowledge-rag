@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rag.knowledge.dto.kb.KnowledgeBaseBackupResponse;
 import com.rag.knowledge.dto.kb.KnowledgeBaseCreateRequest;
 import com.rag.knowledge.dto.kb.KnowledgeBaseImportResponse;
+import com.rag.knowledge.dto.kb.KnowledgeBaseMemberCandidateResponse;
 import com.rag.knowledge.dto.kb.KnowledgeBaseMemberRequest;
 import com.rag.knowledge.dto.kb.KnowledgeBaseMemberResponse;
 import com.rag.knowledge.dto.kb.KnowledgeBaseMemberUpdateRequest;
@@ -71,6 +72,15 @@ public class KnowledgeBaseController {
     @GetMapping("/{id}/members")
     public ApiResponse<List<KnowledgeBaseMemberResponse>> listMembers(@PathVariable Long id) {
         return ApiResponse.success(knowledgeBaseService.listMembers(id));
+    }
+
+    @GetMapping("/{id}/member-candidates")
+    public ApiResponse<List<KnowledgeBaseMemberCandidateResponse>> memberCandidates(
+            @PathVariable Long id,
+            @RequestParam String keyword,
+            @RequestParam(required = false, defaultValue = "10") Integer limit
+    ) {
+        return ApiResponse.success(knowledgeBaseService.searchMemberCandidates(id, keyword, limit));
     }
 
     @PostMapping("/{id}/members")
