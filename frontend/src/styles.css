@@ -754,13 +754,22 @@ textarea:focus {
 .member-form,
 .member-actions {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) minmax(108px, auto);
   gap: 8px;
 }
 
 .member-picker {
   position: relative;
   min-width: 0;
+}
+
+.member-form .member-picker {
+  grid-column: 1 / -1;
+}
+
+.member-form > select,
+.member-form > button {
+  width: 100%;
 }
 
 .member-picker > input {

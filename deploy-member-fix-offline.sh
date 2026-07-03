@@ -13,22 +13,29 @@ cleanup() {
 }
 trap cleanup EXIT
 
-test -f deployment-patch/app.jar
-test -f deployment-patch/frontend/index.html
-docker image inspect "$backend_image" >/dev/null
-docker image inspect "$frontend_image" >/dev/null
+test -f deployment-patch/app.jar || test -f deployment-patch/frontend/index.html
 
 cleanup
 
-docker create --name "$backend_temp" "$backend_image" >/dev/null
-docker cp deployment-patch/app.jar "$backend_temp":/app/app.jar
-docker commit "$backend_temp" "$backend_image" >/dev/null
+services=()
 
-docker create --name "$frontend_temp" "$frontend_image" >/dev/null
-docker cp deployment-patch/frontend/. "$frontend_temp":/usr/share/nginx/html/
-docker commit "$frontend_temp" "$frontend_image" >/dev/null
+if test -f deployment-patch/app.jar; then
+  docker image inspect "$backend_image" >/dev/null
+  docker create --name "$backend_temp" "$backend_image" >/dev/null
+  docker cp deployment-patch/app.jar "$backend_temp":/app/app.jar
+  docker commit "$backend_temp" "$backend_image" >/dev/null
+  services+=(backend)
+fi
+
+if test -f deployment-patch/frontend/index.html; then
+  docker image inspect "$frontend_image" >/dev/null
+  docker create --name "$frontend_temp" "$frontend_image" >/dev/null
+  docker cp deployment-patch/frontend/. "$frontend_temp":/usr/share/nginx/html/
+  docker commit "$frontend_temp" "$frontend_image" >/dev/null
+  services+=(frontend)
+fi
 
 docker compose --env-file .env -f docker-compose.prod.yml \
-  up -d --no-build --no-deps --force-recreate backend frontend
+  up -d --no-build --no-deps --force-recreate "${services[@]}"
 
 docker compose --env-file .env -f docker-compose.prod.yml ps

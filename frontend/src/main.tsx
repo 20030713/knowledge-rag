@@ -324,6 +324,7 @@ function Workspace({ user, onLogout }: { user: CurrentUser; onLogout: () => void
 function SharingPanel({ selected, onMembersChanged }: { selected: KnowledgeBase | null; onMembersChanged: () => Promise<void> }) {
   const [members, setMembers] = useState<KnowledgeBaseMember[]>([]);
   const [candidates, setCandidates] = useState<KnowledgeBaseMemberCandidate[]>([]);
+  const [selectedCandidate, setSelectedCandidate] = useState<KnowledgeBaseMemberCandidate | null>(null);
   const [username, setUsername] = useState("");
   const [role, setRole] = useState<KnowledgeBaseRole>("VIEWER");
   const [loading, setLoading] = useState(false);
@@ -360,13 +361,19 @@ function SharingPanel({ selected, onMembersChanged }: { selected: KnowledgeBase 
   }
   async function addMember(event: FormEvent) {
     event.preventDefault();
-    if (!selected || !canManage || !username.trim()) return;
+    if (!selected || !canManage) return;
+    const targetCandidate = selectedCandidate ?? (candidates.length === 1 ? candidates[0] : null);
+    if (!targetCandidate) {
+      setError(candidates.length > 1 ? "请先从搜索结果中选择一个用户" : "没有可添加的用户");
+      return;
+    }
     setSaving(true);
     setError("");
     setMessage("");
     try {
-      const added = await api.addKnowledgeBaseMember(selected.id, username.trim(), role);
+      const added = await api.addKnowledgeBaseMember(selected.id, targetCandidate.username, role);
       setUsername("");
+      setSelectedCandidate(null);
       setRole("VIEWER");
       setCandidates([]);
       setCandidateOpen(false);
@@ -395,7 +402,7 @@ function SharingPanel({ selected, onMembersChanged }: { selected: KnowledgeBase 
         <div className="member-picker">
           <input
             value={username}
-            onChange={(event) => { setUsername(event.target.value); setCandidateOpen(true); setError(""); setMessage(""); }}
+            onChange={(event) => { setUsername(event.target.value); setSelectedCandidate(null); setCandidateOpen(true); setError(""); setMessage(""); }}
             onFocus={() => setCandidateOpen(true)}
             disabled={!selected || !canManage || saving}
             placeholder="搜索已注册用户"
@@ -408,14 +415,14 @@ function SharingPanel({ selected, onMembersChanged }: { selected: KnowledgeBase 
               type="button"
               className="member-suggestion"
               key={candidate.userId}
-              onClick={() => { setUsername(candidate.username); setCandidateOpen(false); }}
+              onClick={() => { setUsername(candidate.username); setSelectedCandidate(candidate); setCandidateOpen(false); setError(""); }}
             >
               <strong>{candidate.username}</strong><small>选择</small>
             </button>)}
           </div>}
         </div>
         <select value={role} onChange={(event) => setRole(event.target.value as KnowledgeBaseRole)} disabled={!selected || !canManage || saving}>{roleOptions(false)}</select>
-        <button type="submit" disabled={!selected || !canManage || saving || !username.trim()}>添加成员</button>
+        <button type="submit" disabled={!selected || !canManage || saving || (!selectedCandidate && candidates.length !== 1)}>添加成员</button>
       </form>
       <div className="member-list">
         {loading && <div className="muted-row"><Loader2 className="spin" size={15} />正在加载成员...</div>}
