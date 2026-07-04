@@ -76,7 +76,13 @@ public class PgVectorSearchService {
         }
 
         long queryStartedAt = System.nanoTime();
-        Map<Long, Double> vectorScores = loadCandidates(userId, kbId, questionVector, topK);
+        Map<Long, Double> vectorScores = loadCandidates(
+                userId,
+                kbId,
+                textEmbeddingService.modelNamespace(),
+                questionVector,
+                topK
+        );
         long vectorQueryMs = elapsedMillis(queryStartedAt);
         log.info("RAG retrieval timing kbId={}, embeddingMs={}, vectorQueryMs={}, totalMs={}",
                 kbId, embeddingMs, vectorQueryMs, elapsedMillis(startedAt));
@@ -101,12 +107,18 @@ public class PgVectorSearchService {
                 .toList();
     }
 
-    private Map<Long, Double> loadCandidates(Long userId, Long kbId, double[] questionVector, int topK) {
+    private Map<Long, Double> loadCandidates(
+            Long userId,
+            Long kbId,
+            String embeddingModel,
+            double[] questionVector,
+            int topK
+    ) {
         int candidateLimit = Math.max(topK, topK * properties.safeCandidateMultiplier());
         String sql = """
                 SELECT chunk_id, 1 - (embedding <=> ?::vector) AS vector_score
                 FROM %s
-                WHERE user_id = ? AND kb_id = ?
+                WHERE user_id = ? AND kb_id = ? AND embedding_model = ?
                 ORDER BY embedding <=> ?::vector
                 LIMIT ?
                 """.formatted(properties.safeTableName());
@@ -117,8 +129,9 @@ public class PgVectorSearchService {
             statement.setString(1, vectorLiteral);
             statement.setLong(2, userId);
             statement.setLong(3, kbId);
-            statement.setString(4, vectorLiteral);
-            statement.setInt(5, candidateLimit);
+            statement.setString(4, embeddingModel);
+            statement.setString(5, vectorLiteral);
+            statement.setInt(6, candidateLimit);
             try (ResultSet resultSet = statement.executeQuery()) {
                 while (resultSet.next()) {
                     scores.put(resultSet.getLong("chunk_id"), Math.max(0, resultSet.getDouble("vector_score")));

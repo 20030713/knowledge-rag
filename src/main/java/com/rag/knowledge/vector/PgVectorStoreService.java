@@ -70,6 +70,8 @@ public class PgVectorStoreService implements VectorStoreService {
                     """.formatted(tableName, properties.safeDimensions()));
             statement.execute("CREATE INDEX IF NOT EXISTS idx_%s_user_kb ON %s(user_id, kb_id)"
                     .formatted(tableName, tableName));
+            statement.execute("CREATE INDEX IF NOT EXISTS idx_%s_user_kb_model ON %s(user_id, kb_id, embedding_model)"
+                    .formatted(tableName, tableName));
             statement.execute("CREATE INDEX IF NOT EXISTS idx_%s_embedding ON %s USING hnsw (embedding vector_cosine_ops)"
                     .formatted(tableName, tableName));
         } catch (SQLException exception) {
@@ -110,13 +112,25 @@ public class PgVectorStoreService implements VectorStoreService {
     }
 
     @Override
-    public int countDocumentVectors(Long userId, Long documentId) {
-        return count("SELECT COUNT(*) FROM %s WHERE user_id = ? AND document_id = ?".formatted(properties.safeTableName()), userId, documentId);
+    public int countDocumentVectors(Long userId, Long documentId, String embeddingModel) {
+        return countCurrentModel(
+                "SELECT COUNT(*) FROM %s WHERE user_id = ? AND document_id = ? AND embedding_model = ?"
+                        .formatted(properties.safeTableName()),
+                userId,
+                documentId,
+                embeddingModel
+        );
     }
 
     @Override
-    public int countKnowledgeBaseVectors(Long userId, Long kbId) {
-        return count("SELECT COUNT(*) FROM %s WHERE user_id = ? AND kb_id = ?".formatted(properties.safeTableName()), userId, kbId);
+    public int countKnowledgeBaseVectors(Long userId, Long kbId, String embeddingModel) {
+        return countCurrentModel(
+                "SELECT COUNT(*) FROM %s WHERE user_id = ? AND kb_id = ? AND embedding_model = ?"
+                        .formatted(properties.safeTableName()),
+                userId,
+                kbId,
+                embeddingModel
+        );
     }
 
     @Override
@@ -156,6 +170,24 @@ public class PgVectorStoreService implements VectorStoreService {
             }
         } catch (SQLException exception) {
             log.warn("Failed to count pgvector rows", exception);
+            return 0;
+        }
+    }
+
+    private int countCurrentModel(String sql, Long first, Long second, String embeddingModel) {
+        if (!properties.isEnabled()) {
+            return 0;
+        }
+        try (Connection connection = openConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setLong(1, first);
+            statement.setLong(2, second);
+            statement.setString(3, embeddingModel);
+            try (var resultSet = statement.executeQuery()) {
+                return resultSet.next() ? resultSet.getInt(1) : 0;
+            }
+        } catch (SQLException exception) {
+            log.warn("Failed to count current pgvector rows", exception);
             return 0;
         }
     }

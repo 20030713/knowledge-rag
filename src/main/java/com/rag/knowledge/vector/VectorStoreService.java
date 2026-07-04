@@ -12,9 +12,9 @@ public interface VectorStoreService {
 
     void upsert(DocumentChunk chunk, double[] embedding);
 
-    int countDocumentVectors(Long userId, Long documentId);
+    int countDocumentVectors(Long userId, Long documentId, String embeddingModel);
 
-    int countKnowledgeBaseVectors(Long userId, Long kbId);
+    int countKnowledgeBaseVectors(Long userId, Long kbId, String embeddingModel);
 
     void deleteDocument(Long userId, Long documentId);
 

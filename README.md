@@ -179,7 +179,7 @@ EMBEDDING_MODEL_ENABLED=true
 EMBEDDING_MODEL_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 EMBEDDING_MODEL_ENDPOINT_PATH=/embeddings
 EMBEDDING_MODEL_API_KEY=replace-with-your-api-key
-EMBEDDING_MODEL_NAME=text-embedding-v4
+EMBEDDING_MODEL_NAME=text-embedding-v3
 EMBEDDING_MODEL_DIMENSIONS=1024
 
 PGVECTOR_ENABLED=true

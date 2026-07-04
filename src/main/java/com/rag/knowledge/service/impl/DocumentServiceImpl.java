@@ -32,6 +32,7 @@ import com.rag.knowledge.service.DocumentService;
 import com.rag.knowledge.service.DocumentTaskQueueService;
 import com.rag.knowledge.service.KnowledgeBasePermissionService;
 import com.rag.knowledge.service.RagAnswerCacheService;
+import com.rag.knowledge.vector.TextEmbeddingService;
 import com.rag.knowledge.vector.VectorStoreService;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -67,6 +68,7 @@ public class DocumentServiceImpl implements DocumentService {
     private final KnowledgeBaseMapper knowledgeBaseMapper;
     private final UploadProperties uploadProperties;
     private final RagAnswerCacheService ragAnswerCacheService;
+    private final TextEmbeddingService textEmbeddingService;
     private final VectorStoreService vectorStoreService;
     private final KnowledgeBasePermissionService permissionService;
     private final DistributedLockService distributedLockService;
@@ -81,6 +83,7 @@ public class DocumentServiceImpl implements DocumentService {
             KnowledgeBaseMapper knowledgeBaseMapper,
             UploadProperties uploadProperties,
             RagAnswerCacheService ragAnswerCacheService,
+            TextEmbeddingService textEmbeddingService,
             VectorStoreService vectorStoreService,
             KnowledgeBasePermissionService permissionService,
             DistributedLockService distributedLockService,
@@ -94,6 +97,7 @@ public class DocumentServiceImpl implements DocumentService {
         this.knowledgeBaseMapper = knowledgeBaseMapper;
         this.uploadProperties = uploadProperties;
         this.ragAnswerCacheService = ragAnswerCacheService;
+        this.textEmbeddingService = textEmbeddingService;
         this.vectorStoreService = vectorStoreService;
         this.permissionService = permissionService;
         this.distributedLockService = distributedLockService;
@@ -353,7 +357,11 @@ public class DocumentServiceImpl implements DocumentService {
                 .toList();
         int chunkCount = statuses.stream().mapToInt(DocumentIndexStatusResponse::chunkCount).sum();
         int embeddingCount = statuses.stream().mapToInt(DocumentIndexStatusResponse::embeddingCount).sum();
-        int vectorStoreCount = vectorStoreService.countKnowledgeBaseVectors(access.ownerUserId(), kbId);
+        int vectorStoreCount = vectorStoreService.countKnowledgeBaseVectors(
+                access.ownerUserId(),
+                kbId,
+                textEmbeddingService.modelNamespace()
+        );
         return new KnowledgeBaseIndexStatusResponse(
                 kbId,
                 documents.size(),
@@ -411,10 +419,16 @@ public class DocumentServiceImpl implements DocumentService {
     private DocumentIndexStatusResponse buildIndexStatus(Document document) {
         List<DocumentChunk> chunks = loadDocumentChunks(document);
         int chunkCount = chunks.size();
+        String currentEmbeddingModel = textEmbeddingService.modelNamespace();
         int embeddingCount = (int) chunks.stream()
-                .filter(chunk -> chunk.getEmbeddingJson() != null && !chunk.getEmbeddingJson().isBlank())
+                .filter(chunk -> currentEmbeddingModel.equals(chunk.getEmbeddingModel()))
+                .filter(chunk -> readEmbedding(chunk).length == textEmbeddingService.dimensions())
                 .count();
-        int vectorStoreCount = vectorStoreService.countDocumentVectors(document.getUserId(), document.getId());
+        int vectorStoreCount = vectorStoreService.countDocumentVectors(
+                document.getUserId(),
+                document.getId(),
+                currentEmbeddingModel
+        );
         String embeddingModel = chunks.stream()
                 .map(DocumentChunk::getEmbeddingModel)
                 .filter(model -> model != null && !model.isBlank())
@@ -490,15 +504,37 @@ public class DocumentServiceImpl implements DocumentService {
         }
         int synced = 0;
         int skipped = 0;
+        String currentEmbeddingModel = textEmbeddingService.modelNamespace();
         for (DocumentChunk chunk : chunks) {
             double[] embedding = readEmbedding(chunk);
-            if (embedding.length == 0) {
+            boolean requiresReembedding = !currentEmbeddingModel.equals(chunk.getEmbeddingModel())
+                    || embedding.length != textEmbeddingService.dimensions();
+            if (requiresReembedding) {
+                embedding = textEmbeddingService.embed(chunk.getContent());
+            }
+            if (embedding.length != textEmbeddingService.dimensions()) {
                 skipped++;
                 continue;
+            }
+            if (requiresReembedding) {
+                try {
+                    chunk.setEmbeddingJson(objectMapper.writeValueAsString(embedding));
+                } catch (JsonProcessingException exception) {
+                    skipped++;
+                    continue;
+                }
+                chunk.setVectorId(textEmbeddingService.modelName());
+                chunk.setEmbeddingModel(currentEmbeddingModel);
+                documentChunkMapper.updateById(chunk);
             }
             vectorStoreService.upsert(chunk, embedding);
             synced++;
         }
+        chunks.stream()
+                .map(DocumentChunk::getKbId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .forEach(ragAnswerCacheService::evictKnowledgeBase);
         return new VectorSyncResponse(chunks.size(), synced, skipped, vectorBackend(), skipped == 0 ? "SYNCED" : "PARTIAL");
     }
 
