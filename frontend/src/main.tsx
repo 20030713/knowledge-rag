@@ -652,6 +652,7 @@ function VectorProgress({ label, value, text, tone = value === 100 ? "synced" : 
 function ChatStage({ selected }: { selected: KnowledgeBase | null }) {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<RagAnswer | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [history, setHistory] = useState<QaRecord[]>([]);
   const [style, setStyle] = useState<AnswerStyle>("STRICT");
   const [loading, setLoading] = useState(false);
@@ -661,8 +662,15 @@ function ChatStage({ selected }: { selected: KnowledgeBase | null }) {
   const [error, setError] = useState("");
   const answerRef = useRef<HTMLElement | null>(null);
 
-  useEffect(() => { setAnswer(null); setDebug(null); setHistory([]); setActiveCitationId(null); if (selected) void loadHistory(); }, [selected?.id]);
-  async function loadHistory() { if (!selected) return; try { setHistory(await api.listQaHistory(selected.id)); } catch { /* optional */ } }
+  useEffect(() => { setAnswer(null); setSessionId(null); setDebug(null); setHistory([]); setActiveCitationId(null); if (selected) void loadHistory(); }, [selected?.id]);
+  async function loadHistory() {
+    if (!selected) return;
+    try {
+      const items = await api.listQaHistory(selected.id);
+      setHistory(items);
+      setSessionId((current) => current ?? items.find((item) => item.sessionId)?.sessionId ?? null);
+    } catch { /* optional */ }
+  }
   async function ask(event: FormEvent) {
     event.preventDefault();
     if (!selected || !question.trim()) return;
@@ -687,11 +695,12 @@ function ChatStage({ selected }: { selected: KnowledgeBase | null }) {
     setAnswer(streamingAnswer);
     window.setTimeout(() => answerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
     try {
-      await api.streamAskRag(selected.id, asked, style, null, {
+      await api.streamAskRag(selected.id, asked, style, sessionId, {
         onCitations: (citations) => setAnswer((current) => current ? { ...current, citations, hitCount: citations.length } : current),
         onDelta: (content) => setAnswer((current) => current ? { ...current, answer: current.answer + content } : current),
         onComplete: (result) => {
           setAnswer(result);
+          setSessionId(result.sessionId ?? null);
           setActiveCitationId(result.citations[0]?.chunkId ?? null);
         },
         onError: (message) => setError(message)
@@ -713,6 +722,7 @@ function ChatStage({ selected }: { selected: KnowledgeBase | null }) {
   function openHistory(item: QaRecord) {
     setQuestion(item.question);
     setAnswer(item);
+    setSessionId(item.sessionId ?? null);
     setDebugOpen(false);
     setActiveCitationId(item.citations[0]?.chunkId ?? null);
     window.setTimeout(() => answerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);

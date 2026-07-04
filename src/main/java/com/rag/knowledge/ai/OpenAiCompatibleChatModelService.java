@@ -2,6 +2,7 @@ package com.rag.knowledge.ai;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rag.knowledge.config.ChatModelProperties;
 import com.rag.knowledge.dto.rag.RagCitationResponse;
@@ -31,10 +32,14 @@ public class OpenAiCompatibleChatModelService implements ChatModelService {
 
     private final ChatModelProperties properties;
     private final ObjectMapper objectMapper;
+    private final HttpClient httpClient;
 
     public OpenAiCompatibleChatModelService(ChatModelProperties properties, ObjectMapper objectMapper) {
         this.properties = properties;
         this.objectMapper = objectMapper;
+        this.httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(properties.safeTimeoutSeconds()))
+                .build();
     }
 
     @Override
@@ -49,19 +54,18 @@ public class OpenAiCompatibleChatModelService implements ChatModelService {
         }
         StringBuilder answer = new StringBuilder();
         try {
-            ChatCompletionRequest requestBody = buildRequest(question, citations, style, systemPrompt, true);
-            HttpClient client = HttpClient.newBuilder()
-                    .connectTimeout(Duration.ofSeconds(properties.safeTimeoutSeconds()))
-                    .build();
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(properties.safeBaseUrl() + properties.safeEndpointPath()))
                     .timeout(Duration.ofSeconds(properties.safeTimeoutSeconds()))
                     .header("Authorization", "Bearer " + properties.getApiKey())
                     .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
                     .header("Accept", MediaType.TEXT_EVENT_STREAM_VALUE)
-                    .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(requestBody), StandardCharsets.UTF_8))
+                    .POST(HttpRequest.BodyPublishers.ofString(
+                            serializeRequestBody(question, citations, style, systemPrompt, true),
+                            StandardCharsets.UTF_8
+                    ))
                     .build();
-            HttpResponse<java.io.InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
+            HttpResponse<java.io.InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 String errorBody = new String(response.body().readAllBytes(), StandardCharsets.UTF_8);
                 log.warn("Chat model stream failed, status={}, body={}", response.statusCode(), errorBody);
@@ -150,6 +154,7 @@ public class OpenAiCompatibleChatModelService implements ChatModelService {
     }
 
     private ChatCompletionRequest buildRequest(String question, List<RagCitationResponse> citations, AnswerStyle style, String systemPrompt, boolean stream) {
+        boolean thinkingEnabled = properties.isThinkingEnabled();
         return new ChatCompletionRequest(
                 properties.getModel(),
                 properties.safeTemperature(),
@@ -157,10 +162,20 @@ public class OpenAiCompatibleChatModelService implements ChatModelService {
                         new Message("system", systemPrompt == null || systemPrompt.isBlank() ? systemPrompt(style) : systemPrompt),
                         new Message("user", userPrompt(question, citations))
                 ),
-                properties.isThinkingEnabled() ? new Thinking("enabled") : null,
-                properties.safeReasoningEffort(),
+                new Thinking(thinkingEnabled ? "enabled" : "disabled"),
+                thinkingEnabled ? properties.safeReasoningEffort() : null,
                 stream
         );
+    }
+
+    String serializeRequestBody(
+            String question,
+            List<RagCitationResponse> citations,
+            AnswerStyle style,
+            String systemPrompt,
+            boolean stream
+    ) throws JsonProcessingException {
+        return objectMapper.writeValueAsString(buildRequest(question, citations, style, systemPrompt, stream));
     }
 
     private String parseSseData(String line) {
