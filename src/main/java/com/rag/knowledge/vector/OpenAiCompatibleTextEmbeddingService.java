@@ -3,6 +3,7 @@ package com.rag.knowledge.vector;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.rag.knowledge.config.EmbeddingModelProperties;
+import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.List;
 import org.slf4j.Logger;
@@ -21,6 +22,7 @@ public class OpenAiCompatibleTextEmbeddingService implements TextEmbeddingServic
 
     private final EmbeddingModelProperties properties;
     private final HashingTextEmbeddingService fallback;
+    private final RestClient restClient;
 
     public OpenAiCompatibleTextEmbeddingService(
             EmbeddingModelProperties properties,
@@ -28,6 +30,7 @@ public class OpenAiCompatibleTextEmbeddingService implements TextEmbeddingServic
     ) {
         this.properties = properties;
         this.fallback = fallback;
+        this.restClient = buildRestClient();
     }
 
     @Override
@@ -36,7 +39,7 @@ public class OpenAiCompatibleTextEmbeddingService implements TextEmbeddingServic
             return fallback.embed(text);
         }
         try {
-            EmbeddingResponse response = buildRestClient().post()
+            EmbeddingResponse response = restClient.post()
                     .uri(properties.safeEndpointPath())
                     .contentType(MediaType.APPLICATION_JSON)
                     .accept(MediaType.APPLICATION_JSON)
@@ -78,7 +81,10 @@ public class OpenAiCompatibleTextEmbeddingService implements TextEmbeddingServic
     }
 
     private RestClient buildRestClient() {
-        JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory();
+        HttpClient httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(properties.safeTimeoutSeconds()))
+                .build();
+        JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
         requestFactory.setReadTimeout(Duration.ofSeconds(properties.safeTimeoutSeconds()));
         return RestClient.builder()
                 .baseUrl(properties.safeBaseUrl())

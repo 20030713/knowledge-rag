@@ -128,6 +128,7 @@ public class RagServiceImpl implements RagService {
 
     @Override
     public RagAskResponse ask(RagAskRequest request) {
+        long startedAt = System.nanoTime();
         LoginUser loginUser = UserContext.getRequired();
         KnowledgeBasePermissionService.KnowledgeBaseAccess access = permissionService.requireRead(request.kbId());
         ChatSession session = ensureSession(loginUser.userId(), request.kbId(), request.sessionId(), request.question());
@@ -139,14 +140,12 @@ public class RagServiceImpl implements RagService {
         if (options.enableCache()) {
             RagAskResponse cached = ragAnswerCacheService.get(loginUser.userId(), request.kbId(), cacheQuestion).orElse(null);
             if (cached != null) {
-                RagAskResponse response = withCacheHit(cached, session.getId());
+                RagAskResponse response = withCacheHit(cached, session.getId(), elapsedMillis(startedAt));
                 saveRecord(loginUser.userId(), session.getId(), response);
                 saveConversationTurn(session, request.question(), response.answer());
                 return response;
             }
         }
-        long startedAt = System.nanoTime();
-
         List<VectorSearchResult> searchResults = vectorSearchService.search(
                 access.ownerUserId(),
                 request.kbId(),
@@ -194,6 +193,7 @@ public class RagServiceImpl implements RagService {
 
     @Override
     public void streamAsk(RagAskRequest request, RagStreamHandler handler) {
+        long startedAt = System.nanoTime();
         LoginUser loginUser = UserContext.getRequired();
         KnowledgeBasePermissionService.KnowledgeBaseAccess access = permissionService.requireRead(request.kbId());
         ChatSession session = ensureSession(loginUser.userId(), request.kbId(), request.sessionId(), request.question());
@@ -205,7 +205,7 @@ public class RagServiceImpl implements RagService {
         if (options.enableCache()) {
             RagAskResponse cached = ragAnswerCacheService.get(loginUser.userId(), request.kbId(), cacheQuestion).orElse(null);
             if (cached != null) {
-                RagAskResponse cacheHit = withCacheHit(cached, session.getId());
+                RagAskResponse cacheHit = withCacheHit(cached, session.getId(), elapsedMillis(startedAt));
                 saveRecord(loginUser.userId(), session.getId(), cacheHit);
                 saveConversationTurn(session, request.question(), cacheHit.answer());
                 handler.onCitations(cacheHit.citations());
@@ -214,8 +214,6 @@ public class RagServiceImpl implements RagService {
                 return;
             }
         }
-        long startedAt = System.nanoTime();
-
         List<VectorSearchResult> searchResults = vectorSearchService.search(
                 access.ownerUserId(),
                 request.kbId(),
@@ -1013,7 +1011,7 @@ public class RagServiceImpl implements RagService {
         return Math.max(1, (System.nanoTime() - startedAt) / 1_000_000);
     }
 
-    private RagAskResponse withCacheHit(RagAskResponse response, Long sessionId) {
+    private RagAskResponse withCacheHit(RagAskResponse response, Long sessionId, Long latencyMs) {
         return new RagAskResponse(
                 response.kbId(),
                 sessionId,
@@ -1024,7 +1022,7 @@ public class RagServiceImpl implements RagService {
                 response.answerStyle(),
                 response.answerSource(),
                 response.modelName(),
-                response.latencyMs(),
+                latencyMs,
                 true,
                 response.fallback()
         );

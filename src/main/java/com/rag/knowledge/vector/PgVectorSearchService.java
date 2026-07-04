@@ -65,14 +65,21 @@ public class PgVectorSearchService {
         if (!properties.isEnabled()) {
             return List.of();
         }
+        long startedAt = System.nanoTime();
+        long embeddingStartedAt = System.nanoTime();
         double[] questionVector = textEmbeddingService.embed(question);
+        long embeddingMs = elapsedMillis(embeddingStartedAt);
         if (questionVector.length != properties.safeDimensions()) {
             log.warn("Question embedding dimension mismatch. expected={}, actual={}",
                     properties.safeDimensions(), questionVector.length);
             return List.of();
         }
 
+        long queryStartedAt = System.nanoTime();
         Map<Long, Double> vectorScores = loadCandidates(userId, kbId, questionVector, topK);
+        long vectorQueryMs = elapsedMillis(queryStartedAt);
+        log.info("RAG retrieval timing kbId={}, embeddingMs={}, vectorQueryMs={}, totalMs={}",
+                kbId, embeddingMs, vectorQueryMs, elapsedMillis(startedAt));
         if (vectorScores.isEmpty()) {
             return List.of();
         }
@@ -195,5 +202,9 @@ public class PgVectorSearchService {
 
     private Connection openConnection() throws SQLException {
         return DriverManager.getConnection(properties.getUrl(), properties.getUsername(), properties.getPassword());
+    }
+
+    private long elapsedMillis(long startedAt) {
+        return Math.max(1, (System.nanoTime() - startedAt) / 1_000_000);
     }
 }
