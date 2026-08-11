@@ -274,7 +274,7 @@ function Workspace({ user, onLogout }: { user: CurrentUser; onLogout: () => void
   return (
     <div className="workspace-shell cobalt-shell">
       <aside className="app-rail" aria-label="全局导航">
-        <div className="rail-brand" title="企业知识库"><Database size={21} /></div>
+        <div className="rail-brand" title="企业知识库">知</div>
         <nav>
           <button className={tab === "chat" ? "active" : ""} onClick={() => setTab("chat")} title="知识问答"><MessageSquareText size={20} /><span>问答</span></button>
           <button className={tab === "documents" ? "active" : ""} onClick={() => setTab("documents")} title="内容库"><FileText size={20} /><span>内容</span></button>
@@ -290,29 +290,28 @@ function Workspace({ user, onLogout }: { user: CurrentUser; onLogout: () => void
 
       <aside className="sidebar knowledge-context">
         <div className="context-heading">
-          <div><span>企业知识空间</span><strong>知识工作台</strong></div>
-          <button className="context-create" onClick={createKnowledgeBase} disabled={saving} title="新建知识库"><Plus size={18} /></button>
+          <div><span>ENTERPRISE KNOWLEDGE</span><strong>你的知识工作区</strong></div>
         </div>
         <div className="active-scope">
-          <span>当前知识范围</span>
-          <strong>{selected?.name ?? "尚未选择"}</strong>
-          <p>{selected?.description || "选择一个知识库后开始提问。"}</p>
-          {selected && <div><em>{roleLabel(selected.accessRole)}</em><small>{selected.memberCount} 位成员</small></div>}
+          <div className="scope-monogram">{selected?.name.slice(0, 2).toUpperCase() ?? "KB"}</div>
+          <div className="scope-copy"><strong>{selected?.name ?? "尚未选择"}</strong><p>{selected?.description || "选择一个知识库后开始提问。"}</p></div>
+          <ChevronRight size={14} />
         </div>
-        <div className="context-section-title"><span>知识库</span><small>{knowledgeBases.length}</small></div>
+        <button className="new-conversation" onClick={() => setTab("chat")}><Plus size={18} />开始新对话</button>
+        <div className="context-section-title"><span>RECENT KNOWLEDGE</span><small>{knowledgeBases.length}</small></div>
         <div className="search-box"><Search size={16} /><input value={kbQuery} onChange={(event) => setKbQuery(event.target.value)} placeholder="搜索知识库" /></div>
         <div className="kb-list">
           {loading && <div className="muted-row"><Loader2 className="spin" size={16} />正在加载...</div>}
           {!loading && knowledgeBases.length === 0 && <button className="empty-kb" onClick={createKnowledgeBase}>创建第一个知识库</button>}
           {filtered.map((item) => <button key={item.id} className={"kb-item " + (selected?.id === item.id ? "active" : "")} onClick={() => setSelectedId(item.id)}><BookOpen size={17} /><span>{item.name}</span><em className={"kb-role role-" + item.accessRole.toLowerCase()}>{roleLabel(item.accessRole)}</em><ChevronRight size={15} /></button>)}
         </div>
-        <button className="manage-scope" onClick={() => setSettingsOpen(true)} disabled={!selected}><Settings size={17} /><span>管理当前知识库</span><ChevronRight size={15} /></button>
+        <button className="manage-scope" onClick={() => setSettingsOpen(true)} disabled={!selected}><Settings size={17} /><span><strong>知识空间管理</strong><small>文档、成员与任务状态</small></span><ChevronRight size={15} /></button>
       </aside>
 
       <section className="main-panel">
         <header className="topbar">
-          <div><p>{tab === "chat" ? "知识问答" : tab === "documents" ? "内容管理" : tab === "tasks" ? "处理任务" : "管理员工具"}</p><h2>{selected ? selected.name : "请选择知识库"}</h2></div>
-          <div className="topbar-actions"><div className="status-pill"><Check size={15} />知识范围已锁定</div><button className="topbar-settings" onClick={() => setSettingsOpen(true)} disabled={!selected}><Settings size={17} />设置</button><button className="topbar-logout" onClick={onLogout} title="退出登录"><LogOut size={17} /></button></div>
+          <div className="topbar-title"><strong>知识 AI</strong><div className="status-pill"><Check size={13} />仅检索你有权限访问的内容</div></div>
+          <div className="topbar-actions"><button className="evidence-nav" onClick={() => setTab("chat")}><BookOpen size={16} />证据舱</button><button className="topbar-settings" onClick={() => setSettingsOpen(true)} disabled={!selected}><Settings size={17} />管理</button><button className="topbar-logout" onClick={onLogout} title="退出登录"><LogOut size={17} /></button></div>
         </header>
         {error && <div className="inline-error workspace-error">{error}</div>}
         <section className="work-panel">
@@ -723,7 +722,6 @@ function ChatStage({ selected, canDebug = false }: { selected: KnowledgeBase | n
     setDebug(null);
     setActiveCitationId(null);
     setAnswer(streamingAnswer);
-    window.setTimeout(() => answerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
     try {
       await api.streamAskRag(selected.id, asked, style, sessionId, {
         onCitations: (citations) => setAnswer((current) => current ? { ...current, citations, hitCount: citations.length } : current),
@@ -746,7 +744,9 @@ function ChatStage({ selected, canDebug = false }: { selected: KnowledgeBase | n
 
   function jumpToCitation(citation: { chunkId: string }) {
     setActiveCitationId(citation.chunkId);
-    document.getElementById(`citation-${citation.chunkId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    const target = document.getElementById(`citation-${citation.chunkId}`);
+    const container = target?.closest(".citation-list");
+    if (target && container) container.scrollTo({ top: Math.max(0, (target as HTMLElement).offsetTop - 160), behavior: "smooth" });
   }
 
   function openHistory(item: QaRecord) {
@@ -755,13 +755,12 @@ function ChatStage({ selected, canDebug = false }: { selected: KnowledgeBase | n
     setSessionId(item.sessionId ?? null);
     setDebugOpen(false);
     setActiveCitationId(item.citations[0]?.chunkId ?? null);
-    window.setTimeout(() => answerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
   }
 
   return (
     <div className="chat-stage">
-      <form className="ask-box" onSubmit={ask}>
-        <div className="ask-head">
+      <form className={"ask-box " + (answer ? "follow-up" : "first-question")} onSubmit={ask}>
+        {!answer && <div className="ask-head">
           <div>
             <strong>{selected ? selected.name : "未选择知识库"}</strong>
             <span>流式回答会实时输出，并保留引用定位与历史回看。</span>
@@ -771,17 +770,18 @@ function ChatStage({ selected, canDebug = false }: { selected: KnowledgeBase | n
             <option value="BRIEF">简洁模式</option>
             <option value="INTERVIEW">面试模式</option>
           </select>
-        </div>
-        <textarea value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="输入你的问题" rows={4} />
+        </div>}
+        <textarea value={question} onChange={(event) => setQuestion(event.target.value)} placeholder={answer ? "继续追问，或输入新的企业知识问题..." : "输入你的问题"} rows={answer ? 1 : 4} />
         <div className="editor-actions">
-          <button className="primary-action compact" type="submit" disabled={!selected || loading || !question.trim()}>{loading ? <Loader2 className="spin" size={17} /> : <Send size={17} />}{loading ? "生成中" : "开始提问"}</button>
-          {canDebug && <button type="button" className="admin-debug-action" onClick={runDebug} disabled={!selected || loading || !question.trim()}><ShieldCheck size={16} />管理员诊断</button>}
+          <button className="primary-action compact" type="submit" disabled={!selected || loading || !question.trim()} title={loading ? "生成中" : "发送问题"}>{loading ? <Loader2 className="spin" size={17} /> : <Send size={18} />}<span>{loading ? "生成中" : answer ? "发送" : "开始提问"}</span></button>
+          {canDebug && !answer && <button type="button" className="admin-debug-action" onClick={runDebug} disabled={!selected || loading || !question.trim()}><ShieldCheck size={16} />管理员诊断</button>}
         </div>
       </form>
       {error && <div className="inline-error">{error}</div>}
       {answer && (
         <section className="answer-layout" ref={answerRef}>
           <article className={"answer-card " + (loading ? "streaming" : "")}>
+            <div className="answer-kicker"><i />ANSWER CANVAS · {selected?.name.toUpperCase()}</div>
             <div className="answer-head">
               <div>
                 <strong>{answer.question}</strong>
@@ -800,6 +800,8 @@ function ChatStage({ selected, canDebug = false }: { selected: KnowledgeBase | n
             )}
           </article>
           <section className="citation-list">
+            <div className="evidence-kicker">TRACEABLE EVIDENCE</div>
+            <div className="evidence-heading"><strong>证据舱</strong><p>显示可读来源与定位，不暴露内部检索实现。</p></div>
             <div className="document-list-head">
               <strong>引用来源</strong>
               <span>{answer.citations.length} 份资料</span>
@@ -808,11 +810,12 @@ function ChatStage({ selected, canDebug = false }: { selected: KnowledgeBase | n
             {answer.citations.map((citation, index) => (
               <article id={`citation-${citation.chunkId}`} className={"citation-card " + (activeCitationId === citation.chunkId ? "active" : "")} key={citation.chunkId}>
                 <header>
-                  <strong>[{index + 1}] {citation.documentName}</strong>
-                  <button className="citation-open" type="button" onClick={() => jumpToCitation(citation)}>查看引用</button>
+                  <span className="source-index">{String(index + 1).padStart(2, "0")}</span>
+                  <strong>{citation.documentName}</strong>
                 </header>
                 <div className="source-label"><ShieldCheck size={14} />已核对的知识库来源</div>
                 <p>{renderQuestionHighlights(citation.content, answer.question)}</p>
+                <button className="citation-open" type="button" onClick={() => jumpToCitation(citation)}>查看原文 →</button>
               </article>
             ))}
           </section>
@@ -1389,8 +1392,9 @@ function renderAnswerBody(answer: string, citations: Array<{ chunkId: string }>,
   });
 }
 function renderAnswerInline(text: string, citations: Array<{ chunkId: string }>, onCitationClick: (citation: { chunkId: string }) => void) {
-  const parts = text.split(/(\[\d+\]|【\d+】)/g).filter((part) => part.length > 0);
+  const parts = text.split(/(\[\d+\]|【\d+】|\*\*[^*]+\*\*)/g).filter((part) => part.length > 0);
   return <>{parts.map((part, index) => {
+    if (/^\*\*[^*]+\*\*$/.test(part)) return <strong key={index}>{part.slice(2, -2)}</strong>;
     const match = part.match(/[\[【](\d+)[\]】]/);
     if (!match) return <React.Fragment key={index}>{part}</React.Fragment>;
     const citationIndex = Number(match[1]) - 1;
