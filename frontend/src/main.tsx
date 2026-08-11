@@ -14,9 +14,11 @@ import {
   Plus,
   Search,
   Send,
+  Settings,
   ShieldCheck,
   Trash2,
-  UploadCloud
+  UploadCloud,
+  X
 } from "lucide-react";
 import {
   api,
@@ -144,13 +146,13 @@ function AuthScreen({ initialError = "", onAuthed }: { initialError?: string; on
   return (
     <main className="auth-layout">
       <section className="auth-copy">
-        <div className="product-mark"><Database size={22} /><span>企业知识库 RAG</span></div>
+        <div className="product-mark"><Database size={22} /><span>企业知识工作台</span></div>
         <h1>企业知识库问答工作台</h1>
-        <p>围绕私有文档建立知识库，向后端 RAG 流程提供清晰、可演示的操作入口。</p>
+        <p>让团队在清晰的知识边界内提问、核验来源并共同维护可信内容。</p>
         <div className="auth-metrics" aria-label="项目模块">
-          <div><strong>JWT</strong><span>身份鉴权</span></div>
-          <div><strong>KB</strong><span>知识边界</span></div>
-          <div><strong>RAG</strong><span>引用溯源</span></div>
+          <div><strong>来源</strong><span>可信引用</span></div>
+          <div><strong>边界</strong><span>权限清晰</span></div>
+          <div><strong>协作</strong><span>团队共建</span></div>
         </div>
       </section>
       <form className="auth-panel" onSubmit={submit}>
@@ -176,9 +178,10 @@ function Workspace({ user, onLogout }: { user: CurrentUser; onLogout: () => void
   const [error, setError] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [tab, setTab] = useState<WorkspaceTab>("documents");
+  const [tab, setTab] = useState<WorkspaceTab>("chat");
   const [kbQuery, setKbQuery] = useState("");
   const [profileOpen, setProfileOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const backupInputRef = useRef<HTMLInputElement | null>(null);
   const selected = useMemo(() => knowledgeBases.find((item) => item.id === selectedId) ?? knowledgeBases[0] ?? null, [knowledgeBases, selectedId]);
   const canAdmin = canAdminKnowledgeBase(selected);
@@ -269,53 +272,80 @@ function Workspace({ user, onLogout }: { user: CurrentUser; onLogout: () => void
   }
 
   return (
-    <div className="workspace-shell">
-      <aside className="sidebar">
-        <div className="sidebar-header"><div className="product-mark small"><Database size={18} /><span>企业知识库 RAG</span></div><button className="new-kb" onClick={createKnowledgeBase} disabled={saving}><Plus size={17} />新建</button></div>
+    <div className="workspace-shell cobalt-shell">
+      <aside className="app-rail" aria-label="全局导航">
+        <div className="rail-brand" title="企业知识库"><Database size={21} /></div>
+        <nav>
+          <button className={tab === "chat" ? "active" : ""} onClick={() => setTab("chat")} title="知识问答"><MessageSquareText size={20} /><span>问答</span></button>
+          <button className={tab === "documents" ? "active" : ""} onClick={() => setTab("documents")} title="内容库"><FileText size={20} /><span>内容</span></button>
+          <button className={tab === "tasks" ? "active" : ""} onClick={() => setTab("tasks")} title="处理任务"><Check size={20} /><span>任务</span></button>
+          {user.role === "ADMIN" && <button className={tab === "monitor" ? "active" : ""} onClick={() => setTab("monitor")} title="系统状态"><Database size={20} /><span>状态</span></button>}
+        </nav>
+        <div className="rail-bottom">
+          {user.role === "ADMIN" && <button className={tab === "rag" ? "active" : ""} onClick={() => setTab("rag")} title="RAG 配置"><Bot size={20} /><span>RAG</span></button>}
+          {user.role === "ADMIN" && <button className={tab === "admin" ? "active" : ""} onClick={() => setTab("admin")} title="系统管理"><ShieldCheck size={20} /><span>管理</span></button>}
+          <button onClick={() => setProfileOpen(true)} title="个人中心"><span className="rail-avatar">{user.username.slice(0, 1).toUpperCase()}</span></button>
+        </div>
+      </aside>
+
+      <aside className="sidebar knowledge-context">
+        <div className="context-heading">
+          <div><span>企业知识空间</span><strong>知识工作台</strong></div>
+          <button className="context-create" onClick={createKnowledgeBase} disabled={saving} title="新建知识库"><Plus size={18} /></button>
+        </div>
+        <div className="active-scope">
+          <span>当前知识范围</span>
+          <strong>{selected?.name ?? "尚未选择"}</strong>
+          <p>{selected?.description || "选择一个知识库后开始提问。"}</p>
+          {selected && <div><em>{roleLabel(selected.accessRole)}</em><small>{selected.memberCount} 位成员</small></div>}
+        </div>
+        <div className="context-section-title"><span>知识库</span><small>{knowledgeBases.length}</small></div>
         <div className="search-box"><Search size={16} /><input value={kbQuery} onChange={(event) => setKbQuery(event.target.value)} placeholder="搜索知识库" /></div>
         <div className="kb-list">
           {loading && <div className="muted-row"><Loader2 className="spin" size={16} />正在加载...</div>}
           {!loading && knowledgeBases.length === 0 && <button className="empty-kb" onClick={createKnowledgeBase}>创建第一个知识库</button>}
           {filtered.map((item) => <button key={item.id} className={"kb-item " + (selected?.id === item.id ? "active" : "")} onClick={() => setSelectedId(item.id)}><BookOpen size={17} /><span>{item.name}</span><em className={"kb-role role-" + item.accessRole.toLowerCase()}>{roleLabel(item.accessRole)}</em><ChevronRight size={15} /></button>)}
         </div>
-        <div className="user-card"><div><strong>{user.username}</strong><span>{appRoleLabel(user.role)}</span></div><button className="icon-button" onClick={() => setProfileOpen(true)} title="个人中心"><ShieldCheck size={18} /></button><button className="icon-button" onClick={onLogout} title="退出登录"><LogOut size={18} /></button></div>
+        <button className="manage-scope" onClick={() => setSettingsOpen(true)} disabled={!selected}><Settings size={17} /><span>管理当前知识库</span><ChevronRight size={15} /></button>
       </aside>
+
       <section className="main-panel">
-        <header className="topbar"><div><p>知识库工作台</p><h2>{selected ? selected.name : "请选择知识库"}</h2></div><div className="status-pill"><Check size={16} />已连接</div></header>
-        {error && <div className="inline-error">{error}</div>}
-        <div className="content-grid">
-          <form className="editor-panel" onSubmit={saveSelected}>
-            <div className="panel-title"><Pencil size={18} /><span>基础信息</span></div>
-            <label><span>名称</span><input value={name} onChange={(event) => setName(event.target.value)} disabled={!selected || !canAdmin} maxLength={128} /></label>
-            <label><span>描述</span><textarea value={description} onChange={(event) => setDescription(event.target.value)} disabled={!selected || !canAdmin} maxLength={512} /></label>
-            {selected && <div className="permission-summary"><span>{roleLabel(selected.accessRole)}</span><strong>{selected.owned ? "拥有者" : selected.ownerUsername}</strong><small>{selected.memberCount} 个成员</small></div>}
-            <div className="editor-actions">
-              <button className="primary-action compact" type="submit" disabled={!selected || !canAdmin || saving}>{saving ? <Loader2 className="spin" size={17} /> : <Check size={17} />}保存</button>
-              <button type="button" onClick={exportSelectedBackup} disabled={!selected}>导出</button>
-              <button type="button" onClick={() => backupInputRef.current?.click()}>导入</button>
-              <input ref={backupInputRef} type="file" accept=".json,application/json" onChange={importBackup} hidden />
-              <button className="danger-action" type="button" onClick={deleteSelected} disabled={!selected || selected.accessRole !== "OWNER" || saving}><Trash2 size={17} />删除</button>
-            </div>
-            <SharingPanel selected={selected} onMembersChanged={refreshKnowledgeBases} />
-          </form>
-          <section className="work-panel">
-            <div className="tabs">
-              <button className={tab === "documents" ? "active" : ""} onClick={() => setTab("documents")}><FileText size={17} />文档</button>
-              <button className={tab === "chat" ? "active" : ""} onClick={() => setTab("chat")}><MessageSquareText size={17} />问答</button>
-              <button className={tab === "rag" ? "active" : ""} onClick={() => setTab("rag")}><Bot size={17} />RAG</button>
-              <button className={tab === "tasks" ? "active" : ""} onClick={() => setTab("tasks")}><FileText size={17} />任务</button>
-              <button className={tab === "monitor" ? "active" : ""} onClick={() => setTab("monitor")}><Database size={17} />监控</button>
-              {user.role === "ADMIN" && <button className={tab === "admin" ? "active" : ""} onClick={() => setTab("admin")}><ShieldCheck size={17} />管理</button>}
-            </div>
-            {tab === "documents" && <DocumentStage selected={selected} />}
-            {tab === "chat" && <ChatStage selected={selected} />}
-            {tab === "rag" && <RagStage selected={selected} />}
-            {tab === "tasks" && <TaskCenterStage />}
-            {tab === "monitor" && <MonitorStage />}
-            {tab === "admin" && <AdminStage />}
-          </section>
-        </div>
+        <header className="topbar">
+          <div><p>{tab === "chat" ? "知识问答" : tab === "documents" ? "内容管理" : tab === "tasks" ? "处理任务" : "管理员工具"}</p><h2>{selected ? selected.name : "请选择知识库"}</h2></div>
+          <div className="topbar-actions"><div className="status-pill"><Check size={15} />知识范围已锁定</div><button className="topbar-settings" onClick={() => setSettingsOpen(true)} disabled={!selected}><Settings size={17} />设置</button><button className="topbar-logout" onClick={onLogout} title="退出登录"><LogOut size={17} /></button></div>
+        </header>
+        {error && <div className="inline-error workspace-error">{error}</div>}
+        <section className="work-panel">
+          {tab === "documents" && <DocumentStage selected={selected} />}
+          {tab === "chat" && <ChatStage selected={selected} canDebug={user.role === "ADMIN"} />}
+          {tab === "rag" && <RagStage selected={selected} />}
+          {tab === "tasks" && <TaskCenterStage />}
+          {tab === "monitor" && <MonitorStage />}
+          {tab === "admin" && <AdminStage />}
+        </section>
       </section>
+
+      {settingsOpen && <div className="settings-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setSettingsOpen(false); }}>
+        <section className="editor-panel settings-drawer">
+          <header><div><span>知识库设置</span><strong>{selected?.name}</strong></div><button type="button" className="icon-button" onClick={() => setSettingsOpen(false)} aria-label="关闭设置"><X size={20} /></button></header>
+          <div className="drawer-scroll">
+            <form className="drawer-basic-form" onSubmit={saveSelected}>
+              <div className="panel-title"><Pencil size={18} /><span>基础信息</span></div>
+              <label><span>名称</span><input value={name} onChange={(event) => setName(event.target.value)} disabled={!selected || !canAdmin} maxLength={128} /></label>
+              <label><span>描述</span><textarea value={description} onChange={(event) => setDescription(event.target.value)} disabled={!selected || !canAdmin} maxLength={512} /></label>
+              {selected && <div className="permission-summary"><span>{roleLabel(selected.accessRole)}</span><strong>{selected.owned ? "拥有者" : selected.ownerUsername}</strong><small>{selected.memberCount} 个成员</small></div>}
+              <div className="editor-actions">
+                <button className="primary-action compact" type="submit" disabled={!selected || !canAdmin || saving}>{saving ? <Loader2 className="spin" size={17} /> : <Check size={17} />}保存</button>
+                <button type="button" onClick={exportSelectedBackup} disabled={!selected}>导出</button>
+                <button type="button" onClick={() => backupInputRef.current?.click()}>导入</button>
+                <input ref={backupInputRef} type="file" accept=".json,application/json" onChange={importBackup} hidden />
+                <button className="danger-action" type="button" onClick={deleteSelected} disabled={!selected || selected.accessRole !== "OWNER" || saving}><Trash2 size={17} />删除</button>
+              </div>
+            </form>
+            <SharingPanel selected={selected} onMembersChanged={refreshKnowledgeBases} />
+          </div>
+        </section>
+      </div>}
       {profileOpen && <UserCenter user={user} onClose={() => setProfileOpen(false)} />}
     </div>
   );
@@ -649,7 +679,7 @@ function VectorProgress({ label, value, text, tone = value === 100 ? "synced" : 
   );
 }
 
-function ChatStage({ selected }: { selected: KnowledgeBase | null }) {
+function ChatStage({ selected, canDebug = false }: { selected: KnowledgeBase | null; canDebug?: boolean }) {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<RagAnswer | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -745,7 +775,7 @@ function ChatStage({ selected }: { selected: KnowledgeBase | null }) {
         <textarea value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="输入你的问题" rows={4} />
         <div className="editor-actions">
           <button className="primary-action compact" type="submit" disabled={!selected || loading || !question.trim()}>{loading ? <Loader2 className="spin" size={17} /> : <Send size={17} />}{loading ? "生成中" : "开始提问"}</button>
-          <button type="button" onClick={runDebug} disabled={!selected || loading || !question.trim()}>检索调试</button>
+          {canDebug && <button type="button" className="admin-debug-action" onClick={runDebug} disabled={!selected || loading || !question.trim()}><ShieldCheck size={16} />管理员诊断</button>}
         </div>
       </form>
       {error && <div className="inline-error">{error}</div>}
@@ -760,10 +790,8 @@ function ChatStage({ selected }: { selected: KnowledgeBase | null }) {
               {loading && <em className="streaming-badge"><Loader2 className="spin" size={14} />流式生成中</em>}
             </div>
             <div className="answer-meta">
-              <span>{answerSourceLabel(answer.answerSource, answer.cacheHit, answer.fallback)}</span>
-              <span>{answer.hitCount || answer.citations.length} 条引用</span>
-              <span>{formatDuration(answer.latencyMs)}</span>
-              {answer.modelName && <span>{answer.modelName}</span>}
+              <span>{answerStyleLabel(answer.answerStyle ?? style)}</span>
+              <span>基于 {answer.hitCount || answer.citations.length} 份资料</span>
             </div>
             {answer.answer ? (
               <div className="answer-body">{renderAnswerBody(answer.answer, answer.citations, jumpToCitation)}</div>
@@ -774,32 +802,27 @@ function ChatStage({ selected }: { selected: KnowledgeBase | null }) {
           <section className="citation-list">
             <div className="document-list-head">
               <strong>引用来源</strong>
-              <span>{answer.citations.length} 个切片</span>
+              <span>{answer.citations.length} 份资料</span>
             </div>
-            {answer.citations.length === 0 && <div className="muted-document">暂无引用切片</div>}
+            {answer.citations.length === 0 && <div className="muted-document">暂无可展示的引用资料</div>}
             {answer.citations.map((citation, index) => (
               <article id={`citation-${citation.chunkId}`} className={"citation-card " + (activeCitationId === citation.chunkId ? "active" : "")} key={citation.chunkId}>
                 <header>
                   <strong>[{index + 1}] {citation.documentName}</strong>
-                  <button className="citation-open" type="button" onClick={() => jumpToCitation(citation)}>定位</button>
+                  <button className="citation-open" type="button" onClick={() => jumpToCitation(citation)}>查看引用</button>
                 </header>
-                <div className="score-strip">
-                  <span>切片 #{citation.chunkNo}</span>
-                  <span>综合 {formatScore(citation.score)}</span>
-                  {citation.vectorScore !== undefined && <span>向量 {formatScore(citation.vectorScore)}</span>}
-                  {citation.keywordScore !== undefined && <span>关键词 {formatScore(citation.keywordScore)}</span>}
-                </div>
+                <div className="source-label"><ShieldCheck size={14} />已核对的知识库来源</div>
                 <p>{renderQuestionHighlights(citation.content, answer.question)}</p>
               </article>
             ))}
           </section>
         </section>
       )}
-      {debug && <section className="debug-panel"><button type="button" onClick={() => setDebugOpen((value) => !value)}>{debugOpen ? "收起检索调试" : "展开检索调试"}</button>{debugOpen && <div><h3>{debugSummaryTitle(debug)}</h3><p>{debugSummaryText(debug)}</p>{debug.chunks.map((chunk) => <article className="chunk-card" key={chunk.chunkId}><strong>{chunk.documentName} #{chunk.chunkNo} | 得分 {formatScore(chunk.finalScore)}</strong><p>{debugChunkReason(chunk)}</p><p>{chunk.content}</p></article>)}</div>}</section>}
+      {canDebug && debug && <section className="debug-panel"><button type="button" onClick={() => setDebugOpen((value) => !value)}>{debugOpen ? "收起管理员诊断" : "展开管理员诊断"}</button>{debugOpen && <div><div className="diagnostic-warning"><ShieldCheck size={16} />以下内容仅对管理员展示，可能包含内部检索参数。</div><h3>{debugSummaryTitle(debug)}</h3><p>{debugSummaryText(debug)}</p>{debug.chunks.map((chunk) => <article className="chunk-card" key={chunk.chunkId}><strong>{chunk.documentName} #{chunk.chunkNo} | 得分 {formatScore(chunk.finalScore)}</strong><p>{debugChunkReason(chunk)}</p><p>{chunk.content}</p></article>)}</div>}</section>}
       <section className="history-list">
         <div className="document-list-head"><strong>最近问答</strong><span>{history.length} 条</span></div>
         {history.length === 0 && <div className="muted-document">暂无问答记录</div>}
-        {history.slice(0, 10).map((item) => <article key={item.id} className="history-row"><button type="button" className="history-content" onClick={() => openHistory(item)}><strong>{item.question}</strong><span>{formatDateTime(item.createdAt)} · {item.hitCount} 条引用 · {answerSourceLabel(item.answerSource, item.cacheHit, item.fallback)}</span></button></article>)}
+        {history.slice(0, 10).map((item) => <article key={item.id} className="history-row"><button type="button" className="history-content" onClick={() => openHistory(item)}><strong>{item.question}</strong><span>{formatDateTime(item.createdAt)} · {item.hitCount} 份参考资料</span></button></article>)}
       </section>
     </div>
   );

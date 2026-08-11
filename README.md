@@ -1,6 +1,6 @@
 # 企业知识库 RAG 问答系统
 
-面向企业私有文档的全栈 RAG 知识库平台。系统覆盖文档入库、异步解析、向量化、混合检索、流式问答、引用溯源、质量评测与运行监控，并提供可直接部署的 Docker 生产方案。
+面向企业私有文档的全栈 RAG 知识工作台。系统以“先回答、再核验”为核心体验，将知识范围、可信引用与日常协作放在主界面，把检索分数、模型配置、缓存和运行诊断收进管理员区域；同时覆盖文档入库、异步解析、混合检索、流式问答、质量评测与 Docker 生产部署。
 
 <p>
   <img alt="Java 21" src="https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white">
@@ -13,30 +13,28 @@
 
 ## 界面预览
 
+### 知识问答主工作台
+
+深海军蓝、玉青与暖琥珀构成新的企业色系。全局功能、知识范围和回答画布分层呈现；引用资料常驻右侧，普通用户无需接触内部检索参数。
+
+![知识问答主工作台](docs/images/workspace-preview.png)
+
 <table>
   <tr>
     <td width="50%" align="center"><strong>登录与注册</strong></td>
-    <td width="50%" align="center"><strong>知识库工作台</strong></td>
+    <td width="50%" align="center"><strong>知识库设置抽屉</strong></td>
   </tr>
   <tr>
     <td><img src="docs/images/login-preview.png" alt="登录与注册界面"></td>
-    <td><img src="docs/images/workspace-preview.png" alt="知识库工作台"></td>
-  </tr>
-  <tr>
-    <td width="50%" align="center"><strong>流式问答与引用溯源</strong></td>
-    <td width="50%" align="center"><strong>异步任务中心</strong></td>
-  </tr>
-  <tr>
-    <td><img src="docs/images/rag-preview.png" alt="RAG 问答与引用溯源"></td>
-    <td><img src="docs/images/tasks-preview.png" alt="异步任务中心"></td>
-  </tr>
-  <tr>
-    <td colspan="2" align="center"><strong>系统监控与运行诊断</strong></td>
-  </tr>
-  <tr>
-    <td colspan="2"><img src="docs/images/dashboard-preview.png" alt="系统监控与运行诊断"></td>
+    <td><img src="docs/images/knowledge-settings-preview.png" alt="知识库设置抽屉"></td>
   </tr>
 </table>
+
+### 信息分层
+
+- **普通使用层**：知识范围、问题输入、生成答案、可信引用和历史问答。
+- **内容管理层**：文档上传、解析状态、知识库成员、权限与备份，集中在独立入口和设置抽屉。
+- **管理员诊断层**：模型、缓存、延迟、chunk 编号和检索分数仅在管理员工具中按需展示。
 
 ## 核心能力
 
@@ -44,13 +42,13 @@
 - **真实模型接入**：兼容 OpenAI API 协议，可接入 DeepSeek 等聊天模型以及阿里云百炼 Embedding 模型。
 - **向量检索**：支持 pgvector 持久化与召回，并保留本地 Hashing Embedding 作为开发和故障降级方案。
 - **混合排序**：融合向量相似度与关键词命中分数，支持 TopK、候选扫描上限和权重配置。
-- **引用可解释**：答案引用可点击定位对应 chunk，并展示来源、最终分数、向量分数和关键词分数。
+- **引用可解释**：普通界面以文档来源和引用原文帮助用户核验答案；chunk、向量分数和关键词分数仅在管理员诊断中展示。
 - **三种回答模式**：严谨模式、简洁模式、面试模式，可结合知识库级 Prompt 模板调整输出策略。
 - **异步文档任务**：PDF、DOC、DOCX、Markdown、TXT 异步解析，包含进度轮询、状态机、失败重试和任务日志。
 - **企业级权限**：JWT 登录鉴权、管理员后台、知识库成员与 `OWNER / ADMIN / EDITOR / VIEWER` 权限模型。
 - **Redis 工程能力**：问答缓存、固定窗口限流、分布式锁、解析进度、热点问题和 Token 黑名单。
 - **质量闭环**：问答历史、用户反馈、质量问题统计、评测数据集与批量评测运行。
-- **可观测性**：健康检查、今日指标、运行配置诊断、组件状态和任务中心。
+- **分层可观测性**：健康检查、运行配置、缓存状态与检索诊断集中在管理员工具，避免后台数据出现在日常问答界面。
 - **生产部署**：前后端多阶段镜像，MySQL、Redis、pgvector 编排，健康检查、日志轮转和宝塔反向代理方案。
 
 ## 系统架构
@@ -118,7 +116,7 @@ sequenceDiagram
 | 知识库 | CRUD、成员管理、角色权限、备份导入导出、级联清理 |
 | 文档中心 | 多格式上传、异步解析、chunk 预览、质量报告、索引同步 |
 | RAG 问答 | SSE 流式输出、三种回答模式、引用跳转、历史会话、热点问题 |
-| 检索调试 | 召回 chunk、分数组成、命中词、高亮内容与排序解释 |
+| 管理员诊断 | 召回 chunk、分数组成、命中词、高亮内容与排序解释，仅管理员按需访问 |
 | 任务中心 | 任务筛选、解析进度、失败原因、单条与批量重试、任务日志 |
 | 质量评测 | 评测用例、批量运行、命中率、引用率、延迟与质量问题统计 |
 | 系统监控 | 组件健康、今日指标、运行配置、诊断建议和缓存状态 |
