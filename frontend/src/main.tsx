@@ -4,14 +4,20 @@ import {
   BookOpen,
   Bot,
   Check,
+  CircleAlert,
+  CircleCheckBig,
   ChevronRight,
   Database,
   FileText,
+  Hourglass,
+  Layers3,
   Loader2,
   LogOut,
   MessageSquareText,
+  MoreVertical,
   Pencil,
   Plus,
+  RefreshCw,
   Search,
   Send,
   Settings,
@@ -182,6 +188,7 @@ function Workspace({ user, onLogout }: { user: CurrentUser; onLogout: () => void
   const [kbQuery, setKbQuery] = useState("");
   const [profileOpen, setProfileOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
   const backupInputRef = useRef<HTMLInputElement | null>(null);
   const selected = useMemo(() => knowledgeBases.find((item) => item.id === selectedId) ?? knowledgeBases[0] ?? null, [knowledgeBases, selectedId]);
   const canAdmin = canAdminKnowledgeBase(selected);
@@ -291,23 +298,29 @@ function Workspace({ user, onLogout }: { user: CurrentUser; onLogout: () => void
 
       <aside className="sidebar knowledge-context">
         <div className="context-heading context-brand">
-          <span className="context-brand-mark"><Bot size={19} /></span>
+          <span className="context-brand-mark" aria-hidden="true"><Bot size={22} /></span>
           <div><strong>企业知识库</strong><small>可信知识工作台</small></div>
         </div>
         <button className="active-scope" type="button" onClick={() => setSettingsOpen(true)} disabled={!selected}>
           <div className="scope-monogram" aria-hidden="true"><BookOpen size={19} /></div>
-          <div className="scope-copy"><strong title={selected?.name}>{selected?.name ?? "尚未选择"}</strong><p>{selected ? `${roleLabel(selected.accessRole)} · ${selected.memberCount} 位成员` : "选择一个知识库后开始提问"}</p></div>
+          <div className="scope-copy"><strong title={selected?.name}>{selected?.name ?? "尚未选择"}</strong></div>
           <ChevronRight size={14} />
         </button>
-        <button className="new-conversation" onClick={() => setTab("chat")}><Plus size={18} />开始新对话</button>
+        <button className="new-conversation" onClick={() => setTab("chat")}><Plus size={18} />开启新对话</button>
         <button className="create-knowledge-base" onClick={createKnowledgeBase} disabled={saving}><BookOpen size={16} />{saving ? "正在创建..." : "新建知识库"}</button>
         <nav className="sidebar-navigation" aria-label="工作区导航">
-          <button className={tab === "chat" ? "active" : ""} onClick={() => setTab("chat")}><MessageSquareText size={18} /><span>知识问答</span></button>
-          <button className={tab === "documents" ? "active" : ""} onClick={() => setTab("documents")}><FileText size={18} /><span>文档库</span></button>
-          <button className={tab === "tasks" ? "active" : ""} onClick={() => setTab("tasks")}><Check size={18} /><span>任务中心</span></button>
-          {user.role === "ADMIN" && <button className={tab === "monitor" ? "active" : ""} onClick={() => setTab("monitor")}><Database size={18} /><span>系统状态</span></button>}
-          {user.role === "ADMIN" && <button className={tab === "rag" ? "active" : ""} onClick={() => setTab("rag")}><Bot size={18} /><span>RAG 配置</span></button>}
-          {user.role === "ADMIN" && <button className={tab === "admin" ? "active" : ""} onClick={() => setTab("admin")}><ShieldCheck size={18} /><span>系统管理</span></button>}
+          <button className={tab === "chat" ? "active" : ""} onClick={() => { setTab("chat"); setSettingsMenuOpen(false); }}><MessageSquareText size={18} /><span>问答</span></button>
+          <button className={tab === "documents" ? "active" : ""} onClick={() => { setTab("documents"); setSettingsMenuOpen(false); }}><FileText size={18} /><span>文档</span></button>
+          <button className={tab === "tasks" ? "active" : ""} onClick={() => { setTab("tasks"); setSettingsMenuOpen(false); }}><Check size={18} /><span>任务</span></button>
+          <div className="sidebar-settings-entry">
+            <button className={["monitor", "rag", "admin"].includes(tab) ? "active" : ""} onClick={() => setSettingsMenuOpen((value) => !value)}><Settings size={18} /><span>设置</span></button>
+            {settingsMenuOpen && <div className="sidebar-settings-menu">
+              <button onClick={() => { setSettingsOpen(true); setSettingsMenuOpen(false); }}>知识库设置</button>
+              {user.role === "ADMIN" && <button onClick={() => { setTab("rag"); setSettingsMenuOpen(false); }}>RAG 配置</button>}
+              {user.role === "ADMIN" && <button onClick={() => { setTab("monitor"); setSettingsMenuOpen(false); }}>系统状态</button>}
+              {user.role === "ADMIN" && <button onClick={() => { setTab("admin"); setSettingsMenuOpen(false); }}>系统管理</button>}
+            </div>}
+          </div>
         </nav>
         <div className="context-section-title"><span>知识库</span><small>{knowledgeBases.length}</small></div>
         <div className="search-box"><Search size={16} /><input value={kbQuery} onChange={(event) => setKbQuery(event.target.value)} placeholder="搜索知识库" /></div>
@@ -488,6 +501,8 @@ function DocumentStage({ selected }: { selected: KnowledgeBase | null }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<DocumentSearchResult[]>([]);
   const [statusFilter, setStatusFilter] = useState<DocumentStatusFilter>("ALL");
+  const [documentQuery, setDocumentQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState("ALL");
   const [indexStatus, setIndexStatus] = useState<KnowledgeBaseIndexStatus | null>(null);
   const [error, setError] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -535,7 +550,14 @@ function DocumentStage({ selected }: { selected: KnowledgeBase | null }) {
   async function loadIndexStatus() { if (!selected) return; try { setIndexStatus(await api.knowledgeBaseIndexStatus(selected.id)); } catch (exception) { setError(exception instanceof Error ? exception.message : "操作失败"); } }
   async function syncVectors(documentId?: string) { if (!selected) return; setOperatingId(documentId ?? "kb"); try { if (documentId) await api.syncDocumentVectors(documentId); else await api.syncKnowledgeBaseVectors(selected.id); await loadIndexStatus(); } catch (exception) { setError(exception instanceof Error ? exception.message : "操作失败"); } finally { setOperatingId(null); } }
 
-  const filteredDocuments = documents.filter((item) => statusFilter === "ALL" || item.status === statusFilter);
+  const documentTypes = useMemo(() => Array.from(new Set(documents.map((item) => item.fileType?.toUpperCase()).filter(Boolean))), [documents]);
+  const filteredDocuments = documents.filter((item) => {
+    const matchesStatus = statusFilter === "ALL" || item.status === statusFilter;
+    const matchesType = typeFilter === "ALL" || item.fileType?.toUpperCase() === typeFilter;
+    const keyword = documentQuery.trim().toLowerCase();
+    const matchesQuery = !keyword || item.fileName.toLowerCase().includes(keyword) || item.fileType?.toLowerCase().includes(keyword);
+    return matchesStatus && matchesType && matchesQuery;
+  });
   const visibleChunks = chunks.filter((chunk) => !chunkQuery.trim() || chunk.content.toLowerCase().includes(chunkQuery.trim().toLowerCase()));
   const chunkSlice = showAllChunks ? visibleChunks : visibleChunks.slice(0, 5);
   const documentStats = useMemo(() => {
@@ -552,40 +574,44 @@ function DocumentStage({ selected }: { selected: KnowledgeBase | null }) {
   return (
     <div className="document-stage document-console">
       <header className="document-console-head">
-        <div><span>CONTENT LIBRARY</span><h2>文档库</h2><p>上传、解析并维护当前知识库的检索内容。</p></div>
+        <div><h2>文档库</h2></div>
         <div className="document-head-actions">
-          <button onClick={loadDocuments} disabled={!selected || loading}>刷新</button>
           <button className="primary-action compact" onClick={() => fileInputRef.current?.click()} disabled={!selected || !canEdit || uploading}>{uploading ? <Loader2 className="spin" size={17} /> : <UploadCloud size={17} />}上传文档</button>
         </div>
       </header>
       <input ref={fileInputRef} type="file" onChange={uploadDocument} hidden />
       <section className="document-summary" aria-label="文档概览">
-        <div><strong>{documentStats.total}</strong><span>全部文档</span></div>
-        <div><strong>{documentStats.completed}</strong><span>已就绪</span></div>
-        <div><strong>{documentStats.parsing}</strong><span>处理中</span></div>
-        <div className={documentStats.failed > 0 ? "has-error" : ""}><strong>{documentStats.failed}</strong><span>需处理</span></div>
-        <div><strong>{documentStats.totalChunks}</strong><span>可检索切片</span></div>
+        <div className="summary-blue"><FileText size={30} /><span><small>全部文档</small><strong>{documentStats.total}</strong></span></div>
+        <div className="summary-green"><CircleCheckBig size={30} /><span><small>已就绪</small><strong>{documentStats.completed}</strong></span></div>
+        <div className="summary-amber"><Hourglass size={30} /><span><small>处理中</small><strong>{documentStats.parsing}</strong></span></div>
+        <div className={"summary-red " + (documentStats.failed > 0 ? "has-error" : "")}><CircleAlert size={30} /><span><small>需处理</small><strong>{documentStats.failed}</strong></span></div>
+        <div className="summary-purple"><Layers3 size={30} /><span><small>可检索切片</small><strong>{documentStats.totalChunks}</strong></span></div>
       </section>
-      <div className="document-toolbar">
-        <div className="document-toolbar-title"><FileText size={17} /><strong>文档列表</strong><span>{filteredDocuments.length} 项</span></div>
-        <div className="document-toolbar-actions">
-          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as DocumentStatusFilter)} aria-label="筛选文档状态">{["ALL", "UPLOADED", "PARSING", "COMPLETED", "FAILED"].map((status) => <option key={status} value={status}>{statusLabel(status as DocumentStatusFilter)}</option>)}</select>
-          <button onClick={loadIndexStatus} disabled={!selected}>索引概览</button>
-          <button onClick={() => syncVectors()} disabled={!selected || !canEdit || operatingId === "kb"}>同步向量</button>
+      <section className="document-browser-panel">
+        <div className="document-toolbar">
+          <label className="document-name-search"><input value={documentQuery} onChange={(event) => setDocumentQuery(event.target.value)} placeholder="搜索文档名称、标签或内容" /><Search size={18} /></label>
+          <div className="document-toolbar-actions">
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as DocumentStatusFilter)} aria-label="筛选文档状态">{["ALL", "UPLOADED", "PARSING", "COMPLETED", "FAILED"].map((status) => <option key={status} value={status}>{status === "ALL" ? "全部状态" : statusLabel(status as DocumentStatusFilter)}</option>)}</select>
+            <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} aria-label="筛选文档类型"><option value="ALL">全部类型</option>{documentTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select>
+            <button className="document-refresh" onClick={loadDocuments} disabled={!selected || loading} aria-label="刷新文档">{loading ? <Loader2 className="spin" size={18} /> : <RefreshCw size={18} />}</button>
+          </div>
         </div>
-      </div>
-      {error && <div className="inline-error">{error}</div>}
-      <div className="document-table">
-        <div className="document-table-head"><span>名称</span><span>状态</span><span>更新时间</span><span>操作</span></div>
+        {error && <div className="inline-error">{error}</div>}
+        <div className="document-table">
+        <div className="document-table-head"><span><input type="checkbox" aria-label="选择全部文档" /></span><span>文档名称</span><span>类型</span><span>状态</span><span>可检索切片</span><span>更新时间</span><span>操作</span></div>
         {loading && <div className="muted-document"><Loader2 className="spin" size={18} />正在加载文档...</div>}
         {!loading && filteredDocuments.length === 0 && <div className="document-empty"><FileText size={24} /><strong>还没有符合条件的文档</strong><span>点击右上角“上传文档”开始构建知识库内容。</span></div>}
         {!loading && filteredDocuments.map((doc) => <article key={doc.id} className={"document-row " + (selectedDocumentId === doc.id ? "active" : "")}>
-          <div className="document-identity"><span className="document-type">{doc.fileType?.slice(0, 3).toUpperCase() || "DOC"}</span><div><strong title={doc.fileName}>{doc.fileName}</strong><span>{formatFileSize(doc.fileSize)} · {doc.chunkCount} 个切片</span>{doc.errorMsg && <small>{doc.errorMsg}</small>}</div></div>
+          <input type="checkbox" aria-label={`选择 ${doc.fileName}`} />
+          <div className="document-identity"><span className={"document-file-icon file-" + (doc.fileType?.toLowerCase() || "doc")}>{doc.fileType?.slice(0, 1).toUpperCase() || "D"}</span><div><strong title={doc.fileName}>{doc.fileName}</strong>{doc.errorMsg && <small>{doc.errorMsg}</small>}</div></div>
+          <span className={"document-type-badge type-" + (doc.fileType?.toLowerCase() || "doc")}>{doc.fileType?.toUpperCase() || "DOC"}</span>
           <em className={"doc-status status-" + doc.status.toLowerCase()}>{statusLabel(doc.status)}</em>
+          <span className="document-chunk-count">{doc.chunkCount || "—"}</span>
           <time>{formatDateTime(doc.updatedAt)}</time>
-          <div className="document-actions"><button onClick={() => loadChunks(doc.id)}>切片</button><button onClick={() => parseDocument(doc.id)} disabled={!canEdit || operatingId === doc.id}>解析</button><button onClick={() => syncVectors(doc.id)} disabled={!canEdit || operatingId === doc.id}>向量</button><button className="danger-action" onClick={() => deleteDocument(doc.id)} disabled={!canEdit || operatingId === doc.id}>删除</button></div>
+          <details className="document-row-menu"><summary aria-label={`${doc.fileName} 操作`}><MoreVertical size={18} /></summary><div><button onClick={() => loadChunks(doc.id)}>查看切片</button><button onClick={() => parseDocument(doc.id)} disabled={!canEdit || operatingId === doc.id}>重新解析</button><button onClick={() => syncVectors(doc.id)} disabled={!canEdit || operatingId === doc.id}>同步向量</button><button className="danger-action" onClick={() => deleteDocument(doc.id)} disabled={!canEdit || operatingId === doc.id}>删除文档</button></div></details>
         </article>)}
-      </div>
+        </div>
+      </section>
       {indexStatus && <VectorIndexPanel status={indexStatus} syncingId={operatingId} canSync={Boolean(selected && canEdit)} onSyncDocument={syncVectors} onSyncAll={() => syncVectors()} />}
       {selectedDocumentId && <section className="chunk-panel">
         <div className="chunk-panel-head">
