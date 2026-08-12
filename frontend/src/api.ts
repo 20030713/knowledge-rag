@@ -90,6 +90,9 @@ export type KnowledgeBase = {
   accessRole: KnowledgeBaseRole;
   owned: boolean;
   memberCount: number;
+  chunkSize: number;
+  chunkOverlap: number;
+  minBreakSize: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -114,6 +117,9 @@ export type KnowledgeBaseMemberCandidate = {
 export type KnowledgeBasePayload = {
   name: string;
   description?: string;
+  chunkSize?: number;
+  chunkOverlap?: number;
+  minBreakSize?: number;
 };
 
 export type KnowledgeBaseImportResult = {

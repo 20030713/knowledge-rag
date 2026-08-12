@@ -16,6 +16,9 @@ public record KnowledgeBaseBackupResponse(
             String name,
             String description,
             String visibility,
+            Integer chunkSize,
+            Integer chunkOverlap,
+            Integer minBreakSize,
             LocalDateTime createdAt,
             LocalDateTime updatedAt
     ) {

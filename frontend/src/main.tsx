@@ -190,12 +190,23 @@ function Workspace({ user, onLogout }: { user: CurrentUser; onLogout: () => void
   const [error, setError] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [chunkSize, setChunkSize] = useState(420);
+  const [chunkOverlap, setChunkOverlap] = useState(60);
+  const [minBreakSize, setMinBreakSize] = useState(180);
+  const [settingsMessage, setSettingsMessage] = useState("");
   const [tab, setTab] = useState<WorkspaceTab>("chat");
   const [kbQuery, setKbQuery] = useState("");
   const [profileOpen, setProfileOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
   const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
+  const [sidebarKbMenuOpen, setSidebarKbMenuOpen] = useState(false);
+  const [topbarKbMenuOpen, setTopbarKbMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [createKbOpen, setCreateKbOpen] = useState(false);
+  const [createKbName, setCreateKbName] = useState("");
+  const [createKbDescription, setCreateKbDescription] = useState("");
+  const [createKbError, setCreateKbError] = useState("");
   const [sidebarHistory, setSidebarHistory] = useState<QaRecord[]>([]);
   const [requestedHistory, setRequestedHistory] = useState<QaRecord | null>(null);
   const [chatResetKey, setChatResetKey] = useState(0);
@@ -206,13 +217,36 @@ function Workspace({ user, onLogout }: { user: CurrentUser; onLogout: () => void
     const keyword = kbQuery.trim().toLowerCase();
     return keyword ? knowledgeBases.filter((item) => item.name.toLowerCase().includes(keyword) || (item.description ?? "").toLowerCase().includes(keyword)) : knowledgeBases;
   }, [knowledgeBases, kbQuery]);
+  const visibleSidebarHistory = useMemo(() => sidebarHistory.filter((item, index, items) => items.findIndex((candidate) => candidate.question === item.question) === index).slice(0, 4), [sidebarHistory]);
 
   useEffect(() => { void refreshKnowledgeBases(); }, []);
-  useEffect(() => { setName(selected?.name ?? ""); setDescription(selected?.description ?? ""); }, [selected?.id]);
+  useEffect(() => {
+    setName(selected?.name ?? "");
+    setDescription(selected?.description ?? "");
+    setChunkSize(selected?.chunkSize ?? 420);
+    setChunkOverlap(selected?.chunkOverlap ?? 60);
+    setMinBreakSize(selected?.minBreakSize ?? 180);
+    setSettingsMessage("");
+  }, [selected?.id]);
   useEffect(() => {
     if (!selected) { setSidebarHistory([]); return; }
     api.listQaHistory(selected.id).then(setSidebarHistory).catch(() => setSidebarHistory([]));
   }, [selected?.id]);
+  useEffect(() => {
+    const compactQuery = window.matchMedia("(max-width: 1100px)");
+    const syncSidebar = (event: MediaQueryListEvent | MediaQueryList) => setSidebarCollapsed(event.matches);
+    syncSidebar(compactQuery);
+    compactQuery.addEventListener("change", syncSidebar);
+    return () => compactQuery.removeEventListener("change", syncSidebar);
+  }, []);
+  useEffect(() => {
+    if (!createKbOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !saving) setCreateKbOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [createKbOpen, saving]);
 
   function startNewConversation() {
     setRequestedHistory(null);
@@ -223,6 +257,23 @@ function Workspace({ user, onLogout }: { user: CurrentUser; onLogout: () => void
   function openSidebarHistory(item: QaRecord) {
     setRequestedHistory(item);
     setTab("chat");
+  }
+
+  function selectKnowledgeBase(id: string) {
+    setSelectedId(id);
+    setRequestedHistory(null);
+    setSidebarKbMenuOpen(false);
+    setTopbarKbMenuOpen(false);
+  }
+
+  function openCreateKnowledgeBase() {
+    setCreateKbName("");
+    setCreateKbDescription("");
+    setCreateKbError("");
+    setSidebarKbMenuOpen(false);
+    setTopbarKbMenuOpen(false);
+    setWorkspaceMenuOpen(false);
+    setCreateKbOpen(true);
   }
 
   async function refreshKnowledgeBases() {
@@ -247,15 +298,24 @@ function Workspace({ user, onLogout }: { user: CurrentUser; onLogout: () => void
     }
   }
 
-  async function createKnowledgeBase() {
+  async function createKnowledgeBase(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const trimmedName = createKbName.trim();
+    if (trimmedName.length < 2) {
+      setCreateKbError("请输入至少 2 个字符的知识库名称");
+      return;
+    }
     setSaving(true);
+    setCreateKbError("");
     try {
-      const created = await api.createKnowledgeBase({ name: "新的知识库", description: "从工作台创建" });
+      const created = await api.createKnowledgeBase({ name: trimmedName, description: createKbDescription.trim() });
       setKnowledgeBases((items) => [created, ...items]);
       setSelectedId(created.id);
-      setSettingsOpen(true);
+      setCreateKbOpen(false);
+      setTab("documents");
     } catch (exception) {
-      setError(exception instanceof Error ? exception.message : "操作失败");
+      const message = exception instanceof Error ? exception.message : "创建失败，请稍后重试";
+      setCreateKbError(message.includes("already exists") ? "已有同名知识库，请换一个名称" : message);
     } finally {
       setSaving(false);
     }
@@ -263,16 +323,52 @@ function Workspace({ user, onLogout }: { user: CurrentUser; onLogout: () => void
 
   async function saveSelected(event: FormEvent) {
     event.preventDefault();
+    await persistSelected(false);
+  }
+
+  async function saveAndRebuild() {
     if (!selected || !canAdmin) return;
+    if (!window.confirm("保存切片配置并重新解析当前知识库的全部文档？重建期间检索结果可能暂时不完整。")) return;
+    await persistSelected(true);
+  }
+
+  async function persistSelected(rebuild: boolean) {
+    if (!selected || !canAdmin) return;
+    const validationMessage = validateChunkingSettings(chunkSize, chunkOverlap, minBreakSize);
+    if (validationMessage) {
+      setError(validationMessage);
+      return;
+    }
     setSaving(true);
+    setError("");
+    setSettingsMessage("");
     try {
-      const updated = await api.updateKnowledgeBase(selected.id, { name, description });
+      const updated = await api.updateKnowledgeBase(selected.id, {
+        name,
+        description,
+        chunkSize,
+        chunkOverlap,
+        minBreakSize
+      });
       setKnowledgeBases((items) => items.map((item) => item.id === updated.id ? updated : item));
+      if (rebuild) {
+        const result = await api.rebuildKnowledgeBase(selected.id);
+        setSettingsMessage(`配置已保存，已提交 ${result.submitted} 个文档重建。`);
+      } else {
+        setSettingsMessage("设置已保存。新配置将在下次解析文档时生效。已有切片需要重建索引后更新。");
+      }
     } catch (exception) {
       setError(exception instanceof Error ? exception.message : "操作失败");
     } finally {
       setSaving(false);
     }
+  }
+
+  function applyChunkPreset(size: number, overlap: number, minBreak: number) {
+    setChunkSize(size);
+    setChunkOverlap(overlap);
+    setMinBreakSize(minBreak);
+    setSettingsMessage("");
   }
 
   async function deleteSelected() {
@@ -313,7 +409,7 @@ function Workspace({ user, onLogout }: { user: CurrentUser; onLogout: () => void
   }
 
   return (
-    <div className="workspace-shell cobalt-shell">
+    <div className={`workspace-shell cobalt-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
       <aside className="app-rail" aria-label="全局导航">
         <div className="rail-brand" title="企业知识库">知</div>
         <nav>
@@ -333,35 +429,41 @@ function Workspace({ user, onLogout }: { user: CurrentUser; onLogout: () => void
         <div className="context-heading context-brand">
           <span className="context-brand-mark" aria-hidden="true"><BookOpen size={24} /></span>
           <div><strong>企业知识库</strong></div>
-          <button className="sidebar-collapse" type="button" aria-label="收起侧栏"><PanelLeft size={19} /></button>
+          <button className="sidebar-collapse" type="button" aria-label={sidebarCollapsed ? "展开侧栏" : "收起侧栏"} title={sidebarCollapsed ? "展开侧栏" : "收起侧栏"} onClick={() => setSidebarCollapsed((value) => !value)}><PanelLeft size={19} /></button>
         </div>
-        <button className="new-conversation" onClick={startNewConversation}><Plus size={18} />开启新对话</button>
+        <button className="new-conversation" onClick={startNewConversation} title="开启新对话"><Plus size={18} /><span>开启新对话</span></button>
         <div className="reference-sidebar-label">知识库</div>
-        <button className="active-scope" type="button" onClick={() => setWorkspaceMenuOpen((value) => !value)} disabled={!selected}>
+        <button className="active-scope" type="button" onClick={() => { setSidebarKbMenuOpen((value) => !value); setWorkspaceMenuOpen(false); }} disabled={!selected} aria-expanded={sidebarKbMenuOpen} title="切换或管理知识库">
           <div className="scope-monogram" aria-hidden="true"><Layers3 size={18} /></div>
           <div className="scope-copy"><strong title={selected?.name}>{selected?.name ?? "尚未选择"}</strong></div>
           <ChevronRight size={14} />
         </button>
+        {sidebarKbMenuOpen && <div className="knowledge-switcher-menu sidebar-knowledge-menu"><header><strong>选择知识库</strong><span>{knowledgeBases.length} 个</span></header><div>{knowledgeBases.map((item) => <button type="button" className={item.id === selected?.id ? "active" : ""} key={item.id} onClick={() => selectKnowledgeBase(item.id)}><Layers3 size={16} /><span><strong>{item.name}</strong><small>{roleLabel(item.accessRole)}</small></span>{item.id === selected?.id && <Check size={15} />}</button>)}</div><button type="button" className="knowledge-create-action" onClick={openCreateKnowledgeBase}><Plus size={16} />新建知识库</button></div>}
         <div className="reference-sidebar-label recent-label">最近对话</div>
         <div className="sidebar-conversation-list">
-          {sidebarHistory.length === 0 && <span className="sidebar-empty-history">暂无对话记录</span>}
-          {sidebarHistory.slice(0, 8).map((item, index) => <button type="button" key={item.id} className={requestedHistory?.id === item.id || (!requestedHistory && index === 0 && tab === "chat") ? "active" : ""} onClick={() => openSidebarHistory(item)}><MessageSquareText size={16} /><span>{item.question}</span></button>)}
+          {visibleSidebarHistory.length === 0 && <span className="sidebar-empty-history">暂无对话记录</span>}
+          {visibleSidebarHistory.map((item, index) => <button type="button" key={item.id} className={requestedHistory?.id === item.id || (!requestedHistory && index === 0 && tab === "chat") ? "active" : ""} onClick={() => openSidebarHistory(item)} title={item.question}><MessageSquareText size={16} /><span>{item.question}</span></button>)}
         </div>
       </aside>
 
       <section className="main-panel">
         <header className="topbar">
-          <div className="topbar-title"><button type="button" onClick={() => setWorkspaceMenuOpen((value) => !value)}>当前空间：{selected?.name ?? "未选择"}<ChevronRight size={14} /></button><div className="status-pill"><i />知识来源范围：{selected?.name ?? "未选择知识库"}<ChevronRight size={14} /></div></div>
-          <div className="topbar-actions"><button onClick={() => setTab("chat")} title="最近问答"><Clock3 size={20} /></button><button onClick={() => setTab("documents")} title="文档库"><Bookmark size={20} /></button><button onClick={() => setWorkspaceMenuOpen((value) => !value)} title="更多功能"><MoreHorizontal size={22} /></button></div>
+          <div className="topbar-title"><button type="button" onClick={() => { setTopbarKbMenuOpen((value) => !value); setWorkspaceMenuOpen(false); }}>当前空间：企业知识库<ChevronRight size={14} /></button><button type="button" className="status-pill" onClick={() => { setTopbarKbMenuOpen((value) => !value); setWorkspaceMenuOpen(false); }} aria-expanded={topbarKbMenuOpen}><i />知识来源范围：{selected?.name ?? "未选择知识库"}<ChevronRight size={14} /></button></div>
+          <div className="topbar-actions"><button onClick={() => setTab("chat")} title="最近问答" aria-label="最近问答"><Clock3 size={20} /></button><button onClick={() => setTab("documents")} title="文档库" aria-label="文档库"><Bookmark size={20} /></button><button onClick={() => { setWorkspaceMenuOpen((value) => !value); setTopbarKbMenuOpen(false); }} title="更多功能" aria-label="更多功能"><MoreHorizontal size={22} /></button></div>
+          {topbarKbMenuOpen && <div className="knowledge-switcher-menu topbar-knowledge-menu"><header><strong>知识来源范围</strong><span>仅显示你有权限的内容</span></header><div>{knowledgeBases.map((item) => <button type="button" className={item.id === selected?.id ? "active" : ""} key={item.id} onClick={() => selectKnowledgeBase(item.id)}><Layers3 size={16} /><span><strong>{item.name}</strong><small>{roleLabel(item.accessRole)}</small></span>{item.id === selected?.id && <Check size={15} />}</button>)}</div><button type="button" className="knowledge-create-action" onClick={openCreateKnowledgeBase}><Plus size={16} />新建知识库</button></div>}
           {workspaceMenuOpen && <div className="workspace-menu">
+            <span className="workspace-menu-label">工作区</span>
             <button onClick={() => { setTab("chat"); setWorkspaceMenuOpen(false); }}><MessageSquareText size={16} />知识问答</button>
             <button onClick={() => { setTab("documents"); setWorkspaceMenuOpen(false); }}><FileText size={16} />文档库</button>
             <button onClick={() => { setTab("tasks"); setWorkspaceMenuOpen(false); }}><Check size={16} />任务中心</button>
-            <button onClick={() => { void createKnowledgeBase(); setWorkspaceMenuOpen(false); }}><Plus size={16} />新建知识库</button>
+            <span className="workspace-menu-label">知识库</span>
+            <button onClick={openCreateKnowledgeBase}><Plus size={16} />新建知识库</button>
             <button onClick={() => { setSettingsOpen(true); setWorkspaceMenuOpen(false); }}><Settings size={16} />知识库设置</button>
+            {user.role === "ADMIN" && <span className="workspace-menu-label">管理员</span>}
             {user.role === "ADMIN" && <button onClick={() => { setTab("rag"); setWorkspaceMenuOpen(false); }}><Bot size={16} />RAG 配置</button>}
             {user.role === "ADMIN" && <button onClick={() => { setTab("monitor"); setWorkspaceMenuOpen(false); }}><Database size={16} />系统状态</button>}
             {user.role === "ADMIN" && <button onClick={() => { setTab("admin"); setWorkspaceMenuOpen(false); }}><ShieldCheck size={16} />系统管理</button>}
+            <span className="workspace-menu-label">账户</span>
             <button onClick={() => { setProfileOpen(true); setWorkspaceMenuOpen(false); }}>个人中心</button>
             <button onClick={onLogout}><LogOut size={16} />退出登录</button>
           </div>}
@@ -377,6 +479,23 @@ function Workspace({ user, onLogout }: { user: CurrentUser; onLogout: () => void
         </section>
       </section>
 
+      {createKbOpen && <div className="create-kb-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) setCreateKbOpen(false); }}>
+        <form className="create-kb-dialog" onSubmit={createKnowledgeBase}>
+          <header>
+            <span className="create-kb-icon" aria-hidden="true"><Layers3 size={22} /></span>
+            <div><strong>新建知识库</strong><p>先命名，再上传文档。创建后可随时调整成员权限。</p></div>
+            <button type="button" className="icon-button" aria-label="关闭新建知识库" onClick={() => setCreateKbOpen(false)} disabled={saving}><X size={19} /></button>
+          </header>
+          <div className="create-kb-fields">
+            <label><span>知识库名称 <em>必填</em></span><input autoFocus value={createKbName} onChange={(event) => { setCreateKbName(event.target.value); setCreateKbError(""); }} placeholder="例如：Java 后端面试资料" maxLength={128} /></label>
+            <label><span>用途说明 <small>选填</small></span><textarea value={createKbDescription} onChange={(event) => setCreateKbDescription(event.target.value)} placeholder="简要说明收录内容，便于团队成员识别" maxLength={512} /></label>
+            <div className="create-kb-next"><FileText size={17} /><span><strong>下一步</strong> 创建后进入文档库上传资料</span></div>
+            {createKbError && <div className="inline-error">{createKbError}</div>}
+          </div>
+          <footer><button type="button" onClick={() => setCreateKbOpen(false)} disabled={saving}>取消</button><button className="primary-action compact" type="submit" disabled={saving || createKbName.trim().length < 2}>{saving ? <Loader2 className="spin" size={17} /> : <Plus size={17} />}创建并上传文档</button></footer>
+        </form>
+      </div>}
+
       {settingsOpen && <div className="settings-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setSettingsOpen(false); }}>
         <section className="editor-panel settings-drawer">
           <header><div><span>知识库设置</span><strong>{selected?.name}</strong></div><button type="button" className="icon-button" onClick={() => setSettingsOpen(false)} aria-label="关闭设置"><X size={20} /></button></header>
@@ -385,9 +504,26 @@ function Workspace({ user, onLogout }: { user: CurrentUser; onLogout: () => void
               <div className="panel-title"><Pencil size={18} /><span>基础信息</span></div>
               <label><span>名称</span><input value={name} onChange={(event) => setName(event.target.value)} disabled={!selected || !canAdmin} maxLength={128} /></label>
               <label><span>描述</span><textarea value={description} onChange={(event) => setDescription(event.target.value)} disabled={!selected || !canAdmin} maxLength={512} /></label>
+              <section className="chunk-settings-card">
+                <div className="panel-title"><Layers3 size={18} /><span>文档切片</span></div>
+                <p>优先按段落和句子边界切分，以下长度作为切片上限。修改后需重建索引才会影响已有文档。</p>
+                <div className="chunk-preset-row" aria-label="切片配置预设">
+                  <button type="button" className={chunkSize === 300 && chunkOverlap === 40 && minBreakSize === 120 ? "active" : ""} onClick={() => applyChunkPreset(300, 40, 120)} disabled={!canAdmin}>精准引用</button>
+                  <button type="button" className={chunkSize === 420 && chunkOverlap === 60 && minBreakSize === 180 ? "active" : ""} onClick={() => applyChunkPreset(420, 60, 180)} disabled={!canAdmin}>均衡模式</button>
+                  <button type="button" className={chunkSize === 800 && chunkOverlap === 120 && minBreakSize === 320 ? "active" : ""} onClick={() => applyChunkPreset(800, 120, 320)} disabled={!canAdmin}>长文理解</button>
+                </div>
+                <div className="chunk-settings-grid">
+                  <label><span>切片长度 <small>200–1500</small></span><input type="number" min={200} max={1500} value={chunkSize} onChange={(event) => setChunkSize(Number(event.target.value))} disabled={!selected || !canAdmin} /></label>
+                  <label><span>重叠长度 <small>0–300</small></span><input type="number" min={0} max={300} value={chunkOverlap} onChange={(event) => setChunkOverlap(Number(event.target.value))} disabled={!selected || !canAdmin} /></label>
+                  <label><span>最小切分位置 <small>50–1200</small></span><input type="number" min={50} max={1200} value={minBreakSize} onChange={(event) => setMinBreakSize(Number(event.target.value))} disabled={!selected || !canAdmin} /></label>
+                </div>
+                <div className="chunk-settings-summary"><CircleAlert size={16} /><span>当前配置：每片最多 {chunkSize} 字符，前后重叠 {chunkOverlap} 字符。</span></div>
+              </section>
+              {settingsMessage && <div className="settings-success"><CircleCheckBig size={16} />{settingsMessage}</div>}
               {selected && <div className="permission-summary"><span>{roleLabel(selected.accessRole)}</span><strong>{selected.owned ? "拥有者" : selected.ownerUsername}</strong><small>{selected.memberCount} 个成员</small></div>}
               <div className="editor-actions">
                 <button className="primary-action compact" type="submit" disabled={!selected || !canAdmin || saving}>{saving ? <Loader2 className="spin" size={17} /> : <Check size={17} />}保存</button>
+                <button className="rebuild-action" type="button" onClick={saveAndRebuild} disabled={!selected || !canAdmin || saving}><RefreshCw size={16} />保存并重建</button>
                 <button type="button" onClick={exportSelectedBackup} disabled={!selected}>导出</button>
                 <button type="button" onClick={() => backupInputRef.current?.click()}>导入</button>
                 <input ref={backupInputRef} type="file" accept=".json,application/json" onChange={importBackup} hidden />
@@ -444,22 +580,22 @@ function SharingPanel({ selected, onMembersChanged }: { selected: KnowledgeBase 
   async function addMember(event: FormEvent) {
     event.preventDefault();
     if (!selected || !canManage) return;
-    const targetCandidate = selectedCandidate ?? (candidates.length === 1 ? candidates[0] : null);
-    if (!targetCandidate) {
-      setError(candidates.length > 1 ? "请先从搜索结果中选择一个用户" : "没有可添加的用户");
+    const targetUsername = (selectedCandidate?.username ?? username).trim();
+    if (!targetUsername) {
+      setError("请输入要添加的账号");
       return;
     }
     setSaving(true);
     setError("");
     setMessage("");
     try {
-      const added = await api.addKnowledgeBaseMember(selected.id, targetCandidate.username, role);
+      const added = await api.addKnowledgeBaseMember(selected.id, targetUsername, role);
       setUsername("");
       setSelectedCandidate(null);
       setRole("VIEWER");
       setCandidates([]);
       setCandidateOpen(false);
-      setMessage(`已添加 ${added.username}`);
+      setMessage(`已将 ${added.username} 加入「${selected.name}」，对方刷新后即可看到该知识库`);
       await loadMembers(selected.id);
       await onMembersChanged();
     } catch (exception) { setError(exception instanceof Error ? exception.message : "操作失败"); } finally { setSaving(false); }
@@ -504,7 +640,7 @@ function SharingPanel({ selected, onMembersChanged }: { selected: KnowledgeBase 
           </div>}
         </div>
         <select value={role} onChange={(event) => setRole(event.target.value as KnowledgeBaseRole)} disabled={!selected || !canManage || saving}>{roleOptions(false)}</select>
-        <button type="submit" disabled={!selected || !canManage || saving || (!selectedCandidate && candidates.length !== 1)}>添加成员</button>
+        <button type="submit" disabled={!selected || !canManage || saving || username.trim().length === 0}>添加成员</button>
       </form>
       <div className="member-list">
         {loading && <div className="muted-row"><Loader2 className="spin" size={15} />正在加载成员...</div>}
@@ -858,9 +994,8 @@ function ChatStage({ selected, canDebug = false, requestedHistory, resetKey, onH
       <section className="reference-suggestions" aria-label="推荐问题"><strong>你可能还想问</strong><div>{["缓存穿透和缓存雪崩有什么区别？", "布隆过滤器的误判率如何控制？", "缓存空对象的过期时间怎么设置？", "如何结合限流防止缓存穿透？"].map((item) => <button type="button" key={item} onClick={() => setQuestion(item)}>{item}</button>)}</div></section>
       <form className="reference-composer" onSubmit={ask}>
         <textarea value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="输入你的问题，/ 唤起快捷指令" rows={2} />
-        <div className="composer-tools"><button type="button" title="添加附件"><Paperclip size={20} /></button><label title="回答风格"><Sparkles size={20} /><select value={style} onChange={(event) => setStyle(event.target.value as AnswerStyle)}><option value="STRICT">严谨</option><option value="BRIEF">简洁</option><option value="INTERVIEW">面试</option></select></label></div>
+        <div className="composer-tools"><button type="button" title="添加附件" aria-label="添加附件"><Paperclip size={20} /></button><label title="回答风格"><Sparkles size={20} /><select aria-label="回答风格" value={style} onChange={(event) => setStyle(event.target.value as AnswerStyle)}><option value="STRICT">严谨</option><option value="BRIEF">简洁</option><option value="INTERVIEW">面试</option></select></label>{canDebug && <button type="button" className="composer-debug" onClick={runDebug} disabled={!selected || loading || !question.trim()} title="管理员诊断" aria-label="管理员诊断"><ShieldCheck size={17} /></button>}</div>
         <button className="composer-send" type="submit" disabled={!selected || loading || !question.trim()} title={loading ? "生成中" : "发送问题"}>{loading ? <Loader2 className="spin" size={20} /> : <Send size={21} />}</button>
-        {canDebug && <button type="button" className="composer-debug" onClick={runDebug} disabled={!selected || loading || !question.trim()} title="管理员诊断"><ShieldCheck size={17} /></button>}
       </form>
       {canDebug && debug && <section className="debug-panel"><button type="button" onClick={() => setDebugOpen((value) => !value)}>{debugOpen ? "收起管理员诊断" : "展开管理员诊断"}</button>{debugOpen && <div><div className="diagnostic-warning"><ShieldCheck size={16} />以下内容仅对管理员展示，可能包含内部检索参数。</div><h3>{debugSummaryTitle(debug)}</h3><p>{debugSummaryText(debug)}</p>{debug.chunks.map((chunk) => <article className="chunk-card" key={chunk.chunkId}><strong>{chunk.documentName} #{chunk.chunkNo} | 得分 {formatScore(chunk.finalScore)}</strong><p>{debugChunkReason(chunk)}</p><p>{chunk.content}</p></article>)}</div>}</section>}
     </div>
@@ -1407,6 +1542,14 @@ function sleep(ms: number) { return new Promise((resolve) => window.setTimeout(r
 function roleLevel(role?: KnowledgeBaseRole | null) { const value = normalizeCode(role); if (value === "OWNER") return 4; if (value === "ADMIN") return 3; if (value === "EDITOR") return 2; if (value === "VIEWER") return 1; return 0; }
 function canAdminKnowledgeBase(kb: KnowledgeBase | null) { return roleLevel(kb?.accessRole) >= roleLevel("ADMIN"); }
 function canEditKnowledgeBase(kb: KnowledgeBase | null) { return roleLevel(kb?.accessRole) >= roleLevel("EDITOR"); }
+
+function validateChunkingSettings(chunkSize: number, chunkOverlap: number, minBreakSize: number) {
+  if (!Number.isInteger(chunkSize) || chunkSize < 200 || chunkSize > 1500) return "切片长度必须是 200 到 1500 之间的整数。";
+  if (!Number.isInteger(chunkOverlap) || chunkOverlap < 0 || chunkOverlap > 300) return "重叠长度必须是 0 到 300 之间的整数。";
+  if (chunkOverlap >= chunkSize || chunkOverlap > Math.floor(chunkSize * 0.3)) return "重叠长度必须小于切片长度，且不能超过切片长度的 30%。";
+  if (!Number.isInteger(minBreakSize) || minBreakSize < 50 || minBreakSize > 1200 || minBreakSize > chunkSize) return "最小切分位置必须在 50 和切片长度之间。";
+  return "";
+}
 function roleLabel(role?: string | null) { const value = normalizeCode(role); return value === "OWNER" ? "拥有者" : value === "ADMIN" ? "管理员" : value === "EDITOR" ? "编辑者" : value === "VIEWER" ? "只读" : "-"; }
 function appRoleLabel(role?: string | null) { const value = normalizeCode(role); return value === "ADMIN" ? "管理员" : value === "USER" ? "普通用户" : value === "OWNER" ? "拥有者" : value === "EDITOR" ? "编辑者" : value === "VIEWER" ? "只读" : role ?? "-"; }
 function statusLabel(status: string) { const labels: Record<string, string> = { ALL: "全部", UPLOADED: "已上传", PARSING: "解析中", COMPLETED: "已完成", DONE: "已完成", FAILED: "失败", PENDING: "等待中", RUNNING: "运行中" }; return labels[normalizeCode(status)] ?? status; }

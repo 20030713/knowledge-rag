@@ -26,6 +26,9 @@ public class DatabaseSchemaInitializer implements ApplicationRunner {
         createUserLoginLogTable();
         createAdminOperationLogTable();
         createKnowledgeBaseTable();
+        addColumnIfMissing("knowledge_base", "chunk_size", "`chunk_size` INT NOT NULL DEFAULT 420");
+        addColumnIfMissing("knowledge_base", "chunk_overlap", "`chunk_overlap` INT NOT NULL DEFAULT 60");
+        addColumnIfMissing("knowledge_base", "min_break_size", "`min_break_size` INT NOT NULL DEFAULT 180");
         createKnowledgeBaseMemberTable();
         createUserPreferenceTable();
         createChatSessionTable();
@@ -128,6 +131,9 @@ public class DatabaseSchemaInitializer implements ApplicationRunner {
                   `name` VARCHAR(128) NOT NULL,
                   `description` VARCHAR(512) DEFAULT NULL,
                   `visibility` VARCHAR(32) NOT NULL DEFAULT 'PRIVATE',
+                  `chunk_size` INT NOT NULL DEFAULT 420,
+                  `chunk_overlap` INT NOT NULL DEFAULT 60,
+                  `min_break_size` INT NOT NULL DEFAULT 180,
                   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                   KEY `idx_kb_user_id` (`user_id`),

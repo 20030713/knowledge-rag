@@ -7,12 +7,14 @@ import com.rag.knowledge.common.ErrorCode;
 import com.rag.knowledge.config.UploadProperties;
 import com.rag.knowledge.domain.entity.Document;
 import com.rag.knowledge.domain.entity.DocumentChunk;
+import com.rag.knowledge.domain.entity.KnowledgeBase;
 import com.rag.knowledge.domain.entity.TaskLog;
 import com.rag.knowledge.domain.enums.DocumentStatus;
 import com.rag.knowledge.exception.BusinessException;
 import com.rag.knowledge.rag.TextChunker;
 import com.rag.knowledge.repository.DocumentChunkMapper;
 import com.rag.knowledge.repository.DocumentMapper;
+import com.rag.knowledge.repository.KnowledgeBaseMapper;
 import com.rag.knowledge.repository.TaskLogMapper;
 import com.rag.knowledge.service.DistributedLockService;
 import com.rag.knowledge.service.DocumentParseProgressService;
@@ -32,6 +34,7 @@ public class DocumentParseTask {
 
     private final DocumentMapper documentMapper;
     private final DocumentChunkMapper documentChunkMapper;
+    private final KnowledgeBaseMapper knowledgeBaseMapper;
     private final UploadProperties uploadProperties;
     private final TextDocumentReader textDocumentReader;
     private final TextChunker textChunker;
@@ -46,6 +49,7 @@ public class DocumentParseTask {
     public DocumentParseTask(
             DocumentMapper documentMapper,
             DocumentChunkMapper documentChunkMapper,
+            KnowledgeBaseMapper knowledgeBaseMapper,
             UploadProperties uploadProperties,
             TextDocumentReader textDocumentReader,
             TextChunker textChunker,
@@ -59,6 +63,7 @@ public class DocumentParseTask {
     ) {
         this.documentMapper = documentMapper;
         this.documentChunkMapper = documentChunkMapper;
+        this.knowledgeBaseMapper = knowledgeBaseMapper;
         this.uploadProperties = uploadProperties;
         this.textDocumentReader = textDocumentReader;
         this.textChunker = textChunker;
@@ -103,7 +108,8 @@ public class DocumentParseTask {
             Path path = Path.of(uploadProperties.getRootPath()).resolve(document.getFileUrl());
             String text = textDocumentReader.read(path, document.getFileType());
             parseProgressService.mark(document.getId(), "CHUNKING", 25, "Splitting document into chunks", 0, 0);
-            List<String> chunks = textChunker.split(text);
+            KnowledgeBase knowledgeBase = knowledgeBaseMapper.selectById(document.getKbId());
+            List<String> chunks = textChunker.split(text, chunkingOptions(knowledgeBase));
             if (chunks.isEmpty()) {
                 throw new BusinessException(ErrorCode.BAD_REQUEST, "Document content is empty and cannot be split");
             }
@@ -160,6 +166,19 @@ public class DocumentParseTask {
         } finally {
             distributedLockService.unlock(lock);
         }
+    }
+
+    private TextChunker.SplitOptions chunkingOptions(KnowledgeBase knowledgeBase) {
+        int chunkSize = knowledgeBase == null || knowledgeBase.getChunkSize() == null
+                ? TextChunker.DEFAULT_CHUNK_SIZE
+                : knowledgeBase.getChunkSize();
+        int overlapSize = knowledgeBase == null || knowledgeBase.getChunkOverlap() == null
+                ? TextChunker.DEFAULT_OVERLAP_SIZE
+                : knowledgeBase.getChunkOverlap();
+        int minBreakSize = knowledgeBase == null || knowledgeBase.getMinBreakSize() == null
+                ? TextChunker.DEFAULT_MIN_BREAK_SIZE
+                : knowledgeBase.getMinBreakSize();
+        return new TextChunker.SplitOptions(chunkSize, overlapSize, minBreakSize);
     }
 
     private int progressPercent(int processedChunks, int totalChunks) {

@@ -28,6 +28,7 @@ import com.rag.knowledge.repository.KnowledgeBaseMapper;
 import com.rag.knowledge.repository.KnowledgeBaseMemberMapper;
 import com.rag.knowledge.repository.QaRecordMapper;
 import com.rag.knowledge.repository.UserMapper;
+import com.rag.knowledge.rag.TextChunker;
 import com.rag.knowledge.security.LoginUser;
 import com.rag.knowledge.security.UserContext;
 import com.rag.knowledge.service.KnowledgeBasePermissionService;
@@ -164,6 +165,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
 
         knowledgeBase.setName(request.name());
         knowledgeBase.setDescription(request.description());
+        applyChunkingSettings(knowledgeBase, request.chunkSize(), request.chunkOverlap(), request.minBreakSize());
         knowledgeBase.setUpdatedAt(LocalDateTime.now());
         knowledgeBaseMapper.updateById(knowledgeBase);
         return toResponse(knowledgeBase, access.role());
@@ -346,12 +348,15 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
                 .toList();
         return new KnowledgeBaseBackupResponse(
                 "knowledge-rag-kb-backup",
-                1,
+                2,
                 LocalDateTime.now(),
                 new KnowledgeBaseBackupResponse.KnowledgeBaseItem(
                         knowledgeBase.getName(),
                         knowledgeBase.getDescription(),
                         knowledgeBase.getVisibility(),
+                        effectiveChunkSize(knowledgeBase),
+                        effectiveChunkOverlap(knowledgeBase),
+                        effectiveMinBreakSize(knowledgeBase),
                         knowledgeBase.getCreatedAt(),
                         knowledgeBase.getUpdatedAt()
                 ),
@@ -382,6 +387,12 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
         knowledgeBase.setName(importName(loginUser.userId(), backup.knowledgeBase().name()));
         knowledgeBase.setDescription(backup.knowledgeBase().description());
         knowledgeBase.setVisibility(KnowledgeBaseVisibility.PRIVATE.name());
+        applyChunkingSettings(
+                knowledgeBase,
+                backup.knowledgeBase().chunkSize(),
+                backup.knowledgeBase().chunkOverlap(),
+                backup.knowledgeBase().minBreakSize()
+        );
         knowledgeBase.setCreatedAt(now);
         knowledgeBase.setUpdatedAt(now);
         knowledgeBaseMapper.insert(knowledgeBase);
@@ -593,9 +604,50 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
                 role.name(),
                 role == KnowledgeBaseMemberRole.OWNER,
                 memberCount,
+                effectiveChunkSize(knowledgeBase),
+                effectiveChunkOverlap(knowledgeBase),
+                effectiveMinBreakSize(knowledgeBase),
                 knowledgeBase.getCreatedAt(),
                 knowledgeBase.getUpdatedAt()
         );
+    }
+
+    private void applyChunkingSettings(
+            KnowledgeBase knowledgeBase,
+            Integer requestedChunkSize,
+            Integer requestedChunkOverlap,
+            Integer requestedMinBreakSize
+    ) {
+        int chunkSize = requestedChunkSize == null ? effectiveChunkSize(knowledgeBase) : requestedChunkSize;
+        int chunkOverlap = requestedChunkOverlap == null ? effectiveChunkOverlap(knowledgeBase) : requestedChunkOverlap;
+        int minBreakSize = requestedMinBreakSize == null ? effectiveMinBreakSize(knowledgeBase) : requestedMinBreakSize;
+        if (chunkSize < 200 || chunkSize > 1500) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "切片长度必须在 200 到 1500 之间");
+        }
+        if (chunkOverlap < 0 || chunkOverlap > 300 || chunkOverlap >= chunkSize) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "重叠长度必须小于切片长度，且不能超过 300");
+        }
+        if (chunkOverlap > Math.floor(chunkSize * 0.3)) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "重叠长度不能超过切片长度的 30%");
+        }
+        if (minBreakSize < 50 || minBreakSize > 1200 || minBreakSize > chunkSize) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "最小切分位置必须在 50 和切片长度之间");
+        }
+        knowledgeBase.setChunkSize(chunkSize);
+        knowledgeBase.setChunkOverlap(chunkOverlap);
+        knowledgeBase.setMinBreakSize(minBreakSize);
+    }
+
+    private int effectiveChunkSize(KnowledgeBase knowledgeBase) {
+        return knowledgeBase.getChunkSize() == null ? TextChunker.DEFAULT_CHUNK_SIZE : knowledgeBase.getChunkSize();
+    }
+
+    private int effectiveChunkOverlap(KnowledgeBase knowledgeBase) {
+        return knowledgeBase.getChunkOverlap() == null ? TextChunker.DEFAULT_OVERLAP_SIZE : knowledgeBase.getChunkOverlap();
+    }
+
+    private int effectiveMinBreakSize(KnowledgeBase knowledgeBase) {
+        return knowledgeBase.getMinBreakSize() == null ? TextChunker.DEFAULT_MIN_BREAK_SIZE : knowledgeBase.getMinBreakSize();
     }
 
     private KnowledgeBaseMemberResponse toMemberResponse(KnowledgeBaseMember member, User user) {

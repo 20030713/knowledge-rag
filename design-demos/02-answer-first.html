@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>知源 · 答案优先工作台</title>
+  <!--
+    方向 2｜现实参照：企业搜索 / 答案优先
+
+    Assumptions / reasoning
+    - 这是方向探索原型，不是生产实现；目标视口为 1440×900，并兼顾 1024px 宽度。
+    - 主要用户是查询公司资料的普通员工；主路径是：选择知识范围 → 提问 → 阅读答案 → 核对来源 → 继续追问。
+    - 借鉴企业搜索产品“先问问题、答案有来源、检索范围可控”的产品逻辑，不复刻任何第三方品牌资产或视觉。
+    - 示例答案仅概括仓库已存在的异步解析、失败状态、队列重试、任务日志和手动重试能力；没有填充业务指标。
+    - 普通用户不看到 chunk ID、模型名、向量分数、缓存命中、延迟、Redis 或端点；这些只存在于管理员二级入口。
+    - 管理入口假设当前用户拥有内容管理员权限；无权限用户应由生产系统在服务端隐藏并拒绝访问。
+    - 文档的“章节 / 段落”是可读定位方式，用来替代内部切片标识；更新时间为界面示例，不用于表达业务指标。
+    - 字体只使用本机已有中文字体，无网络字体、图片和脚本依赖。
+  -->
+  <style>
+    :root{
+      --paper:#f7f7f3;--surface:#fff;--ink:#17201c;--muted:#647069;--line:#dce1dc;
+      --deep:#123f34;--deep-2:#0d3229;--mint:#dcebe5;--lime:#c7ee76;--soft:#eef1ed;
+      --warn:#8b5a10;--warn-bg:#fff7df;--danger:#9b3434;--focus:#1668db;
+      --shadow:0 18px 48px rgba(25,43,35,.13);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0}
+    body{font-family:"Microsoft YaHei UI","Noto Sans CJK SC","PingFang SC",sans-serif;color:var(--ink);background:var(--paper);font-size:15px;line-height:1.62;overflow:hidden}
+    button,input,select,textarea{font:inherit;color:inherit}
+    button{cursor:pointer}
+    button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid color-mix(in srgb,var(--focus) 42%,transparent);outline-offset:2px}
+    .app{height:100%;display:grid;grid-template-columns:252px minmax(0,1fr);grid-template-rows:72px minmax(0,1fr);grid-template-areas:"side top" "side main"}
+    .side{grid-area:side;background:var(--deep);color:#f3f7f4;padding:24px 16px 18px;display:flex;flex-direction:column;min-width:0}
+    .brand{height:48px;display:flex;align-items:center;gap:11px;padding:0 10px 20px;border-bottom:1px solid rgba(255,255,255,.14)}
+    .brand-mark{width:28px;height:28px;border:1px solid rgba(255,255,255,.68);display:grid;place-items:center;font-family:Georgia,serif;font-size:18px;color:var(--lime)}
+    .brand strong{font-size:17px;letter-spacing:.08em}.brand span{display:block;color:#adc0b8;font-size:11px;letter-spacing:.09em;line-height:1.2}
+    .new-chat{height:44px;margin:20px 4px 18px;border:0;background:var(--lime);color:#183a2f;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px}
+    .new-chat:hover{background:#d2f58d}
+    .side-label{font-size:11px;color:#a9bcb4;letter-spacing:.12em;padding:0 10px;margin:6px 0 8px}
+    .history{display:grid;gap:4px}
+    .history button{border:0;background:transparent;color:#dbe5e1;text-align:left;padding:10px;border-radius:3px;min-height:48px;line-height:1.4}
+    .history button:hover{background:rgba(255,255,255,.08)}
+    .history button.active{background:#f5f7f4;color:var(--deep-2)}
+    .history strong{display:block;font-size:13px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .history span{display:block;font-size:11px;color:#9fb3ab;margin-top:3px}.history .active span{color:#6c7a74}
+    .side-bottom{margin-top:auto;padding-top:14px;border-top:1px solid rgba(255,255,255,.14)}
+    .quiet-link{width:100%;height:44px;border:0;background:transparent;color:#c5d3ce;text-align:left;padding:0 10px;display:flex;align-items:center;gap:10px}
+    .quiet-link:hover{background:rgba(255,255,255,.07);color:white}
+    .top{grid-area:top;background:rgba(255,255,255,.88);border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 30px;gap:18px;backdrop-filter:blur(12px);z-index:2}
+    .space-wrap{position:relative}.space-button{height:44px;border:1px solid var(--line);background:white;padding:0 14px;display:flex;align-items:center;gap:10px;min-width:236px;text-align:left}
+    .space-button small{display:block;color:var(--muted);font-size:11px;line-height:1.25}.space-button strong{display:block;font-size:14px}.chev{margin-left:auto;color:#829089}
+    .space-menu{position:absolute;top:51px;left:0;width:300px;background:#fff;border:1px solid var(--line);box-shadow:var(--shadow);padding:7px;display:none;z-index:8}
+    .space-menu.open{display:block;animation:pop .16s ease-out}.space-menu button{width:100%;border:0;background:white;padding:11px;text-align:left;min-height:54px}.space-menu button:hover{background:var(--soft)}.space-menu span{display:block;color:var(--muted);font-size:12px}
+    .range-note{color:var(--muted);font-size:13px}.top-spacer{flex:1}
+    .doc-link,.avatar{height:44px;border:0;background:transparent}.doc-link{padding:0 12px;color:#33473f}.doc-link:hover{background:var(--soft)}
+    .avatar{width:44px;border-radius:50%;background:var(--deep);color:#fff;font-weight:700;position:relative}
+    .user-pop{position:absolute;right:24px;top:62px;background:#fff;border:1px solid var(--line);width:220px;padding:8px;box-shadow:var(--shadow);display:none;z-index:9}.user-pop.open{display:block}.user-pop header{padding:9px 10px;border-bottom:1px solid var(--line);margin-bottom:5px}.user-pop header strong,.user-pop header span{display:block}.user-pop header span{color:var(--muted);font-size:12px}.user-pop button{width:100%;border:0;background:white;text-align:left;padding:10px}.user-pop button:hover{background:var(--soft)}
+    main{grid-area:main;overflow:auto;scrollbar-width:thin;scrollbar-color:#abb6af transparent}
+    .workspace{width:min(940px,calc(100% - 64px));margin:0 auto;padding:46px 0 100px}
+    .eyebrow{font-size:12px;letter-spacing:.13em;color:#53675e;text-transform:uppercase;margin:0 0 10px}
+    h1{font-family:"Songti SC","SimSun",serif;font-size:34px;line-height:1.28;font-weight:700;letter-spacing:-.02em;margin:0 0 25px;text-wrap:balance}
+    .query-box{background:white;border:1px solid #cfd7d1;box-shadow:0 8px 28px rgba(31,55,44,.08);padding:15px 15px 12px;transition:.2s}
+    .query-box:focus-within{border-color:#758f83;box-shadow:0 10px 30px rgba(31,55,44,.12)}
+    .query-box textarea{width:100%;height:70px;resize:none;border:0;outline:0;background:transparent;font-size:17px;line-height:1.58;padding:3px 4px}
+    .query-foot{display:flex;align-items:center;border-top:1px solid var(--line);padding-top:10px;color:var(--muted);font-size:12px}.query-foot span{flex:1}
+    .ask{height:40px;border:0;background:var(--deep);color:white;font-weight:700;padding:0 20px}.ask:hover{background:var(--deep-2)}
+    .answer-section{margin-top:42px}.question-line{display:flex;align-items:flex-start;gap:14px;padding-bottom:22px;border-bottom:1px solid var(--line)}
+    .q-avatar{width:30px;height:30px;background:#dfe5e1;display:grid;place-items:center;font-weight:700;font-size:12px;flex:0 0 auto}.question-line h2{font-size:20px;line-height:1.5;margin:0;font-weight:650;text-wrap:balance}
+    .answer{display:grid;grid-template-columns:30px minmax(0,1fr);gap:14px;padding-top:26px}.answer-mark{width:30px;height:30px;border:1px solid var(--deep);color:var(--deep);display:grid;place-items:center;font-family:Georgia,serif;font-weight:700}
+    .answer-copy{min-width:0}.answer-kicker{display:flex;align-items:center;gap:9px;color:#496058;font-size:12px;margin:2px 0 14px}.trust-dot{width:7px;height:7px;border-radius:50%;background:#3a8b68}.answer-copy p{font-size:16px;line-height:1.9;margin:0 0 14px;text-wrap:pretty}.answer-copy ol{padding-left:22px;margin:10px 0 18px}.answer-copy li{padding-left:5px;margin-bottom:9px}
+    .cite-ref{border:0;background:var(--mint);color:#174c3c;padding:1px 6px;min-width:28px;height:25px;font-size:12px;font-weight:700;vertical-align:1px}.cite-ref:hover{background:#c8e0d6}
+    .answer-actions{display:flex;gap:8px;margin:24px 0 10px}.answer-actions button{height:38px;border:1px solid var(--line);background:white;padding:0 13px;color:#41564d}.answer-actions button:hover{background:var(--soft)}
+    .sources{margin:30px 0 0;border-top:1px solid var(--line)}.sources-head{height:55px;display:flex;align-items:center}.sources-head h3{font-size:14px;margin:0}.sources-head span{font-size:12px;color:var(--muted);margin-left:9px}
+    .source-row{width:100%;border:0;border-top:1px solid var(--line);background:transparent;text-align:left;padding:16px 0;display:grid;grid-template-columns:31px minmax(0,1fr) auto;gap:12px;align-items:start}.source-row:hover{background:color-mix(in srgb,var(--mint) 35%,transparent)}
+    .source-num{width:25px;height:25px;border:1px solid #8ba096;display:grid;place-items:center;font-size:11px;font-weight:700}.source-row strong{display:block;font-size:14px}.source-row p{margin:3px 0 0;color:#5b6963;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.source-row em{font-style:normal;color:#6b7d74;font-size:12px;padding-top:2px}
+    .followups{margin:32px 0 0 44px}.followups label{font-size:12px;color:var(--muted);display:block;margin-bottom:8px}.chips{display:flex;gap:8px;flex-wrap:wrap}.chips button{border:1px solid var(--line);background:white;min-height:42px;padding:7px 13px;text-align:left}.chips button:hover{border-color:#8da197;background:var(--soft)}
+    .drawer-scrim{position:fixed;inset:0;background:rgba(11,24,19,.24);opacity:0;pointer-events:none;transition:.2s;z-index:10}.drawer-scrim.open{opacity:1;pointer-events:auto}
+    .drawer{position:absolute;right:0;top:0;height:100%;width:min(480px,92vw);background:#fff;box-shadow:-22px 0 50px rgba(15,35,26,.16);transform:translateX(100%);transition:transform .24s ease;display:flex;flex-direction:column}.drawer-scrim.open .drawer{transform:none}
+    .drawer-head{height:72px;padding:0 24px;border-bottom:1px solid var(--line);display:flex;align-items:center}.drawer-head div{flex:1}.drawer-head strong{display:block}.drawer-head span{font-size:12px;color:var(--muted)}.close{width:44px;height:44px;border:0;background:transparent;font-size:22px}.close:hover{background:var(--soft)}
+    .drawer-body{padding:27px 30px;overflow:auto}.source-place{font-size:12px;color:#557067;letter-spacing:.08em;margin-bottom:17px}.drawer-body h3{font-family:"Songti SC","SimSun",serif;font-size:24px;line-height:1.45;margin:0 0 18px}.quote{border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:20px 0;color:#33473f;line-height:1.95}.match{background:#edf4d7;padding:0 2px}.drawer-meta{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:22px}.drawer-meta span{display:block;color:var(--muted);font-size:11px}.drawer-meta strong{font-size:13px}.open-doc{width:100%;height:44px;margin-top:28px;border:0;background:var(--deep);color:white;font-weight:700}
+    .manage{position:fixed;inset:0;background:rgba(11,24,19,.32);display:none;place-items:center;z-index:20}.manage.open{display:grid}.manage-panel{width:min(860px,calc(100vw - 60px));height:min(700px,calc(100vh - 60px));background:#fff;box-shadow:var(--shadow);display:grid;grid-template-columns:204px 1fr;overflow:hidden}
+    .manage-nav{background:#f1f3f0;border-right:1px solid var(--line);padding:22px 14px}.manage-nav h2{font-size:16px;margin:0 8px 22px}.manage-nav button{height:44px;border:0;background:transparent;width:100%;text-align:left;padding:0 12px;margin-bottom:3px}.manage-nav button.active,.manage-nav button:hover{background:#fff}.manage-main{display:flex;flex-direction:column;min-width:0}.manage-top{height:68px;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 22px}.manage-top strong{flex:1}.manage-content{padding:24px 27px;overflow:auto}.manage-content h3{font-size:21px;margin:0 0 5px}.manage-content>.sub{color:var(--muted);margin:0 0 23px}.doc-manage-row{border-top:1px solid var(--line);padding:15px 0;display:grid;grid-template-columns:1fr auto;gap:15px;align-items:center}.doc-manage-row strong,.doc-manage-row span{display:block}.doc-manage-row span{font-size:12px;color:var(--muted)}.status-ok,.status-warn{font-size:12px;font-style:normal;padding:4px 8px}.status-ok{background:#e5f2eb;color:#27644d}.status-warn{background:var(--warn-bg);color:var(--warn)}
+    .admin-only{margin-top:30px;border-top:1px solid var(--line);padding-top:22px;display:flex;align-items:center;gap:18px}.admin-only div{flex:1}.admin-only strong{display:block}.admin-only span{font-size:12px;color:var(--muted)}.outline{height:42px;border:1px solid #9daba4;background:white;padding:0 14px}.outline:hover{background:var(--soft)}
+    .diagnostic-gate{display:none;margin-top:18px;background:#f4f5f3;border:1px solid var(--line);padding:18px}.diagnostic-gate.open{display:block}.gate-warning{background:var(--warn-bg);color:#654410;padding:12px 14px;margin-bottom:14px;font-size:13px}.masked{filter:blur(5px);user-select:none;opacity:.55}.diag-row{display:grid;grid-template-columns:155px 1fr;padding:9px 0;border-top:1px solid var(--line);font-family:Consolas,"Microsoft YaHei UI",monospace;font-size:12px}.reveal{margin-top:15px;height:40px;border:0;background:var(--deep);color:#fff;padding:0 15px}
+    .toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,16px);background:#173a30;color:#fff;padding:10px 16px;box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:.2s;z-index:30}.toast.show{opacity:1;transform:translate(-50%,0)}
+    .hidden{display:none!important}@keyframes pop{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
+    @media(max-width:1100px){.app{grid-template-columns:210px minmax(0,1fr)}.workspace{width:calc(100% - 46px)}.top{padding:0 20px}.range-note{display:none}.manage-panel{grid-template-columns:180px 1fr}}
+    @media(max-width:760px){body{overflow:auto}.app{height:auto;min-height:100%;display:block}.side{display:none}.top{position:sticky;top:0;height:68px}.space-button{min-width:0;width:190px}.doc-link{display:none}main{overflow:visible}.workspace{width:calc(100% - 30px);padding:30px 0 70px}h1{font-size:27px}.manage-panel{width:calc(100vw - 20px);height:calc(100vh - 20px);grid-template-columns:1fr}.manage-nav{display:none}.answer{grid-template-columns:1fr}.answer-mark{display:none}.followups{margin-left:0}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="side">
+      <div class="brand"><div class="brand-mark">知</div><div><strong>知源</strong><span>ENTERPRISE KNOWLEDGE</span></div></div>
+      <button class="new-chat" id="newChat"><span aria-hidden="true">＋</span> 新建对话</button>
+      <div class="side-label">最近对话</div>
+      <nav class="history" aria-label="会话历史">
+        <button class="active" data-session="parse"><strong>文档解析失败如何处理</strong><span>刚刚 · Java-Redis</span></button>
+        <button data-session="redis"><strong>Redis 模块负责什么</strong><span>昨天 · Java-Redis</span></button>
+        <button data-session="deploy"><strong>生产环境开放哪些端口</strong><span>周一 · 工程文档</span></button>
+      </nav>
+      <div class="side-bottom"><button class="quiet-link" id="manageEntry"><span aria-hidden="true">◇</span> 管理知识空间</button></div>
+    </aside>
+
+    <header class="top">
+      <div class="space-wrap">
+        <button class="space-button" id="spaceButton" aria-haspopup="listbox" aria-expanded="false"><span><small>搜索范围</small><strong id="spaceName">Java-Redis 项目</strong></span><span class="chev">⌄</span></button>
+        <div class="space-menu" id="spaceMenu" role="listbox">
+          <button role="option" data-space="Java-Redis 项目"><strong>Java-Redis 项目</strong><span>项目文档与技术说明</span></button>
+          <button role="option" data-space="工程文档"><strong>工程文档</strong><span>部署、接口与运维说明</span></button>
+          <button role="option" data-space="我有权限的全部内容"><strong>我有权限的全部内容</strong><span>跨知识空间搜索</span></button>
+        </div>
+      </div>
+      <span class="range-note">只会检索你有权限访问的内容</span><span class="top-spacer"></span>
+      <button class="doc-link" id="docsTop">文档</button>
+      <button class="avatar" id="avatar" aria-label="打开用户菜单" aria-expanded="false">林</button>
+      <div class="user-pop" id="userPop"><header><strong>林知远</strong><span>内容管理员</span></header><button id="manageUser">管理知识空间</button><button>账户设置</button></div>
+    </header>
+
+    <main id="mainScroll">
+      <section class="workspace">
+        <p class="eyebrow">ASK COMPANY KNOWLEDGE</p>
+        <h1>从可信资料中，直接找到答案。</h1>
+        <form class="query-box" id="queryForm">
+          <textarea id="queryInput" aria-label="输入问题" placeholder="询问项目、制度或技术文档中的任何内容">Java-Redis 项目中的文档解析失败后，系统会如何处理？</textarea>
+          <div class="query-foot"><span>正在搜索：<b id="rangeInline">Java-Redis 项目</b></span><button class="ask" type="submit">获取答案</button></div>
+        </form>
+
+        <section class="answer-section" id="answerSection">
+          <div class="question-line"><div class="q-avatar">林</div><h2 id="displayQuestion">Java-Redis 项目中的文档解析失败后，系统会如何处理？</h2></div>
+          <div class="answer">
+            <div class="answer-mark">知</div>
+            <div class="answer-copy">
+              <div class="answer-kicker"><span class="trust-dot"></span><span>已根据当前知识范围整理</span></div>
+              <div id="answerContent">
+                <p>解析失败后，系统不会把这份文档当作可用资料。它会保留失败状态与原因，并在后台任务队列中按规则重试；同一任务最多自动重试 3 次。<button class="cite-ref" data-source="1" aria-label="查看来源 1">1</button></p>
+                <ol>
+                  <li>失败记录会进入任务日志，内容管理员可以确认失败发生在哪个处理阶段。</li>
+                  <li>如果仍可重试，可在任务中心对单个失败文档重新处理，也可以批量处理选中的任务。</li>
+                  <li>达到重试上限后，文档会显示为“需处理”，避免反复提交无效任务；管理员需先排查文件或配置问题再重试。<button class="cite-ref" data-source="2" aria-label="查看来源 2">2</button></li>
+                </ol>
+                <p>对普通使用者而言，这些后台细节会被收起：只需要知道文档当前是“可用”“处理中”还是“需处理”。</p>
+              </div>
+              <div class="answer-actions"><button id="helpful">有帮助</button><button id="copyAnswer">复制答案</button></div>
+              <section class="sources">
+                <div class="sources-head"><h3>来源</h3><span>2 条可核对资料</span></div>
+                <button class="source-row" data-source="1"><span class="source-num">1</span><span><strong>技术模块学习文档.md</strong><p>后台解析队列：失败后任务重试，最多 3 次……</p></span><em>第 8.4 节</em></button>
+                <button class="source-row" data-source="2"><span class="source-num">2</span><span><strong>核心技术模块说明.md</strong><p>前端任务中心可查看失败原因、任务日志并手动重试……</p></span><em>任务中心与失败保护</em></button>
+              </section>
+            </div>
+          </div>
+          <div class="followups"><label>继续追问</label><div class="chips"><button data-follow="哪些情况会让文档进入“需处理”？">哪些情况会进入“需处理”？</button><button data-follow="管理员在哪里可以重新处理失败文档？">在哪里重新处理失败文档？</button></div></div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <div class="drawer-scrim" id="sourceScrim" aria-hidden="true">
+    <aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="sourceTitle">
+      <header class="drawer-head"><div><strong>查看来源</strong><span id="sourceFile">技术模块学习文档.md</span></div><button class="close" id="closeSource" aria-label="关闭来源">×</button></header>
+      <div class="drawer-body"><div class="source-place" id="sourcePlace">第 8.4 节 · 后台解析队列</div><h3 id="sourceTitle">后台解析队列如何处理失败任务</h3><div class="quote" id="sourceQuote">任务进入队列表后由后台定时消费。处理失败时会记录错误，并按规则重新执行；<span class="match">失败后任务重试，最多 3 次</span>。</div><div class="drawer-meta"><div><span>所属知识空间</span><strong>Java-Redis 项目</strong></div><div><span>内容状态</span><strong>可用于问答</strong></div></div><button class="open-doc" id="openFullDoc">在文档中打开</button></div>
+    </aside>
+  </div>
+
+  <div class="manage" id="manageModal" aria-hidden="true">
+    <section class="manage-panel" role="dialog" aria-modal="true" aria-labelledby="manageTitle">
+      <nav class="manage-nav"><h2>空间管理</h2><button class="active">文档</button><button>成员与权限</button><button>空间设置</button></nav>
+      <div class="manage-main"><header class="manage-top"><strong id="manageTitle">Java-Redis 项目</strong><button class="close" id="closeManage" aria-label="关闭管理面板">×</button></header>
+        <div class="manage-content"><h3>文档</h3><p class="sub">管理哪些资料可以被团队搜索和引用。</p>
+          <div class="doc-manage-row"><div><strong>技术模块学习文档.md</strong><span>内容已建立，可用于问答</span></div><em class="status-ok">可用</em></div>
+          <div class="doc-manage-row"><div><strong>核心技术模块说明.md</strong><span>内容已建立，可用于问答</span></div><em class="status-ok">可用</em></div>
+          <div class="doc-manage-row"><div><strong>接口变更记录.pdf</strong><span>需要内容管理员重新处理</span></div><em class="status-warn">需处理</em></div>
+          <section class="admin-only"><div><strong>高级诊断</strong><span>模型、索引、缓存、运行健康与原始任务日志，仅供系统管理员排障。</span></div><button class="outline" id="diagnosticBtn">打开二级入口</button></section>
+          <div class="diagnostic-gate" id="diagnosticGate"><div class="gate-warning"><strong>管理员排障区</strong><br>此处包含内部服务配置与运行日志。请勿截图或转发给无权限成员。</div><div id="diagRows" class="masked"><div class="diag-row"><span>对话模型</span><b>internal-chat-••••</b></div><div class="diag-row"><span>向量服务</span><b>private-endpoint / healthy</b></div><div class="diag-row"><span>缓存与队列</span><b>internal / protected</b></div><div class="diag-row"><span>原始任务日志</span><b>2026-••-•• parse_job failure…</b></div></div><button class="reveal" id="revealDiag">确认权限并显示诊断概览</button></div>
+        </div>
+      </div>
+    </section>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const $ = (s,root=document)=>root.querySelector(s);
+    const $$ = (s,root=document)=>[...root.querySelectorAll(s)];
+    const toast = (msg)=>{const el=$('#toast');el.textContent=msg;el.classList.add('show');clearTimeout(window.__toast);window.__toast=setTimeout(()=>el.classList.remove('show'),1900)};
+
+    const spaceButton=$('#spaceButton'),spaceMenu=$('#spaceMenu');
+    spaceButton.addEventListener('click',()=>{const open=spaceMenu.classList.toggle('open');spaceButton.setAttribute('aria-expanded',open)});
+    $$('#spaceMenu button').forEach(btn=>btn.addEventListener('click',()=>{const name=btn.dataset.space;$('#spaceName').textContent=name;$('#rangeInline').textContent=name;spaceMenu.classList.remove('open');spaceButton.setAttribute('aria-expanded','false');toast('搜索范围已切换为“'+name+'”')}));
+
+    const sourceData={
+      1:{file:'技术模块学习文档.md',place:'第 8.4 节 · 后台解析队列',title:'后台解析队列如何处理失败任务',quote:'任务进入队列表后由后台定时消费。处理失败时会记录错误，并按规则重新执行；<span class="match">失败后任务重试，最多 3 次</span>。'},
+      2:{file:'核心技术模块说明.md',place:'任务中心与失败保护',title:'失败记录与重新处理',quote:'任务中心支持查看最近解析任务、失败次数和失败原因。管理员可以查看任务日志；对于仍可重试的失败文档，<span class="match">可重新提交解析</span>。达到上限后会阻止反复触发无效任务。'}
+    };
+    const openSource=(id)=>{const d=sourceData[id];$('#sourceFile').textContent=d.file;$('#sourcePlace').textContent=d.place;$('#sourceTitle').textContent=d.title;$('#sourceQuote').innerHTML=d.quote;$('#sourceScrim').classList.add('open');$('#sourceScrim').setAttribute('aria-hidden','false');$('#closeSource').focus()};
+    $$('[data-source]').forEach(el=>el.addEventListener('click',()=>openSource(el.dataset.source)));
+    const closeSource=()=>{$('#sourceScrim').classList.remove('open');$('#sourceScrim').setAttribute('aria-hidden','true')};
+    $('#closeSource').addEventListener('click',closeSource);$('#sourceScrim').addEventListener('click',e=>{if(e.target.id==='sourceScrim')closeSource()});
+    $('#openFullDoc').addEventListener('click',()=>toast('原型：将打开完整文档并定位到引用段落'));
+
+    const avatar=$('#avatar'),userPop=$('#userPop');avatar.addEventListener('click',()=>{const open=userPop.classList.toggle('open');avatar.setAttribute('aria-expanded',open)});
+    const openManage=()=>{$('#manageModal').classList.add('open');$('#manageModal').setAttribute('aria-hidden','false');userPop.classList.remove('open');$('#closeManage').focus()};
+    $('#manageEntry').addEventListener('click',openManage);$('#manageUser').addEventListener('click',openManage);$('#docsTop').addEventListener('click',openManage);
+    $('#closeManage').addEventListener('click',()=>{$('#manageModal').classList.remove('open');$('#manageModal').setAttribute('aria-hidden','true')});
+    $('#manageModal').addEventListener('click',e=>{if(e.target.id==='manageModal')$('#closeManage').click()});
+    $('#diagnosticBtn').addEventListener('click',()=>{$('#diagnosticGate').classList.toggle('open');$('#diagnosticBtn').textContent=$('#diagnosticGate').classList.contains('open')?'收起二级入口':'打开二级入口'});
+    $('#revealDiag').addEventListener('click',()=>{$('#diagRows').classList.remove('masked');$('#revealDiag').textContent='诊断概览已显示';$('#revealDiag').disabled=true;toast('仅系统管理员可见')});
+
+    const sessions={
+      parse:'Java-Redis 项目中的文档解析失败后，系统会如何处理？',
+      redis:'Redis 模块负责什么？',deploy:'生产环境应该开放哪些端口？'
+    };
+    $$('.history button').forEach(btn=>btn.addEventListener('click',()=>{$$('.history button').forEach(b=>b.classList.remove('active'));btn.classList.add('active');const key=btn.dataset.session;if(key==='parse'){location.hash='answer';$('#displayQuestion').textContent=sessions[key];$('#queryInput').value=sessions[key];toast('已打开会话')}else{$('#queryInput').value=sessions[key];toast('已切换会话；本方向重点展示“解析失败”答案')}}));
+    $('#newChat').addEventListener('click',()=>{$$('.history button').forEach(b=>b.classList.remove('active'));$('#queryInput').value='';$('#queryInput').focus();toast('已新建对话')});
+    $$('.chips button').forEach(btn=>btn.addEventListener('click',()=>{$('#queryInput').value=btn.dataset.follow;$('#queryInput').focus();toast('追问已填入输入框')}));
+    $('#queryForm').addEventListener('submit',e=>{e.preventDefault();const q=$('#queryInput').value.trim();if(!q)return toast('请先输入问题');$('#displayQuestion').textContent=q;$('#answerSection').scrollIntoView({behavior:'smooth',block:'start'});toast(q.includes('解析')?'已从当前知识范围整理答案':'原型已接收问题；演示答案保持为已核实案例')});
+    $('#helpful').addEventListener('click',e=>{e.currentTarget.textContent='已标记有帮助';e.currentTarget.disabled=true;toast('感谢反馈')});
+    $('#copyAnswer').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('#answerContent').innerText);toast('答案已复制')}catch{toast('当前浏览器不允许从本地页面复制')}});
+    document.addEventListener('click',e=>{if(!e.target.closest('.space-wrap')){spaceMenu.classList.remove('open');spaceButton.setAttribute('aria-expanded','false')}if(!e.target.closest('#avatar')&&!e.target.closest('#userPop')){userPop.classList.remove('open');avatar.setAttribute('aria-expanded','false')}});
+    document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeSource();$('#manageModal').classList.remove('open');userPop.classList.remove('open');spaceMenu.classList.remove('open')}});
+  </script>
+</body>
+</html>

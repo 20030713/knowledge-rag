@@ -7,11 +7,15 @@ import org.springframework.stereotype.Component;
 @Component
 public class TextChunker {
 
-    private static final int CHUNK_SIZE = 420;
-    private static final int OVERLAP_SIZE = 60;
-    private static final int MIN_BREAK_SIZE = 180;
+    public static final int DEFAULT_CHUNK_SIZE = 420;
+    public static final int DEFAULT_OVERLAP_SIZE = 60;
+    public static final int DEFAULT_MIN_BREAK_SIZE = 180;
 
     public List<String> split(String text) {
+        return split(text, new SplitOptions(DEFAULT_CHUNK_SIZE, DEFAULT_OVERLAP_SIZE, DEFAULT_MIN_BREAK_SIZE));
+    }
+
+    public List<String> split(String text, SplitOptions options) {
         String cleaned = clean(text);
         if (cleaned.isBlank()) {
             return List.of();
@@ -19,8 +23,8 @@ public class TextChunker {
 
         List<String> chunks = new ArrayList<>();
         StringBuilder current = new StringBuilder();
-        for (String unit : splitToUnits(cleaned)) {
-            appendUnit(chunks, current, unit);
+        for (String unit : splitToUnits(cleaned, options.chunkSize())) {
+            appendUnit(chunks, current, unit, options);
         }
         flush(chunks, current);
         return chunks;
@@ -52,14 +56,14 @@ public class TextChunker {
                 .trim();
     }
 
-    private List<String> splitToUnits(String cleaned) {
+    private List<String> splitToUnits(String cleaned, int chunkSize) {
         List<String> units = new ArrayList<>();
         for (String paragraph : cleaned.split("\\n\\s*\\n")) {
             String compact = paragraph.trim();
             if (compact.isBlank()) {
                 continue;
             }
-            if (compact.length() <= CHUNK_SIZE) {
+            if (compact.length() <= chunkSize) {
                 units.add(compact);
                 continue;
             }
@@ -73,9 +77,9 @@ public class TextChunker {
         return units;
     }
 
-    private void appendUnit(List<String> chunks, StringBuilder current, String unit) {
-        if (unit.length() > CHUNK_SIZE) {
-            appendLongUnit(chunks, current, unit);
+    private void appendUnit(List<String> chunks, StringBuilder current, String unit, SplitOptions options) {
+        if (unit.length() > options.chunkSize()) {
+            appendLongUnit(chunks, current, unit, options);
             return;
         }
 
@@ -85,39 +89,39 @@ public class TextChunker {
         }
 
         String separator = current.indexOf("\n") >= 0 ? "\n" : "\n\n";
-        if (current.length() + separator.length() + unit.length() <= CHUNK_SIZE) {
+        if (current.length() + separator.length() + unit.length() <= options.chunkSize()) {
             current.append(separator).append(unit);
             return;
         }
 
         String previous = flush(chunks, current);
-        String overlap = overlapTail(previous);
-        if (!overlap.isBlank() && overlap.length() + unit.length() + 1 <= CHUNK_SIZE) {
+        String overlap = overlapTail(previous, options.overlapSize());
+        if (!overlap.isBlank() && overlap.length() + unit.length() + 1 <= options.chunkSize()) {
             current.append(overlap).append("\n").append(unit);
         } else {
             current.append(unit);
         }
     }
 
-    private void appendLongUnit(List<String> chunks, StringBuilder current, String unit) {
+    private void appendLongUnit(List<String> chunks, StringBuilder current, String unit, SplitOptions options) {
         flush(chunks, current);
         String remaining = unit.trim();
-        while (remaining.length() > CHUNK_SIZE) {
-            int end = findBreakIndex(remaining);
+        while (remaining.length() > options.chunkSize()) {
+            int end = findBreakIndex(remaining, options.chunkSize(), options.minBreakSize());
             String piece = remaining.substring(0, end).trim();
             if (!piece.isBlank()) {
                 chunks.add(piece);
             }
-            remaining = (overlapTail(piece) + remaining.substring(end)).trim();
+            remaining = (overlapTail(piece, options.overlapSize()) + remaining.substring(end)).trim();
         }
         if (!remaining.isBlank()) {
             current.append(remaining);
         }
     }
 
-    private int findBreakIndex(String text) {
-        int limit = Math.min(CHUNK_SIZE, text.length());
-        for (int index = limit; index >= MIN_BREAK_SIZE; index--) {
+    private int findBreakIndex(String text, int chunkSize, int minBreakSize) {
+        int limit = Math.min(chunkSize, text.length());
+        for (int index = limit; index >= minBreakSize; index--) {
             char character = text.charAt(index - 1);
             if (character == '。' || character == '！' || character == '？'
                     || character == ';' || character == '；'
@@ -137,11 +141,23 @@ public class TextChunker {
         return value;
     }
 
-    private String overlapTail(String text) {
+    private String overlapTail(String text, int overlapSize) {
+        if (overlapSize == 0) {
+            return "";
+        }
         String compact = text.replaceAll("\\s+", " ").trim();
-        if (compact.length() <= OVERLAP_SIZE) {
+        if (compact.length() <= overlapSize) {
             return compact;
         }
-        return compact.substring(compact.length() - OVERLAP_SIZE);
+        return compact.substring(compact.length() - overlapSize);
+    }
+
+    public record SplitOptions(int chunkSize, int overlapSize, int minBreakSize) {
+        public SplitOptions {
+            if (chunkSize < 1 || overlapSize < 0 || overlapSize >= chunkSize
+                    || minBreakSize < 1 || minBreakSize > chunkSize) {
+                throw new IllegalArgumentException("Invalid text chunking options");
+            }
+        }
     }
 }

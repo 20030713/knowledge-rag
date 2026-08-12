@@ -12,6 +12,9 @@ public record KnowledgeBaseResponse(
         String accessRole,
         boolean owned,
         int memberCount,
+        int chunkSize,
+        int chunkOverlap,
+        int minBreakSize,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {

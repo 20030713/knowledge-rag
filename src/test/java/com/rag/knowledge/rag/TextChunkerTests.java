@@ -55,4 +55,15 @@ class TextChunkerTests {
         assertThat(chunks).hasSizeGreaterThan(1);
         assertThat(chunks.get(1)).contains(chunks.get(0).substring(chunks.get(0).length() - 20));
     }
+
+    @Test
+    void splitShouldUseKnowledgeBaseSpecificOptions() {
+        String text = "a".repeat(900);
+
+        List<String> chunks = textChunker.split(text, new TextChunker.SplitOptions(300, 40, 120));
+
+        assertThat(chunks).hasSizeGreaterThan(3);
+        assertThat(chunks).allSatisfy(chunk -> assertThat(chunk).hasSizeLessThanOrEqualTo(300));
+        assertThat(chunks.get(1)).startsWith(chunks.get(0).substring(chunks.get(0).length() - 40));
+    }
 }

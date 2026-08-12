@@ -1,0 +1,647 @@
+<!--
+  ASSUMPTIONS / REASONING
+  - 这是方向 3 的设计探索原型，不是生产实现；只验证信息架构、视觉层级与渐进披露。
+  - 观众在约 1 米距离使用 1440×900 桌面视口；1024px 宽度仍保持问答主流程可用。
+  - 当前演示用户 demo_admin 同时拥有知识库管理与系统管理权限，用于完整演示两级后台入口；普通员工不显示「管理」入口。
+  - 回答、引用摘要与状态描述仅根据仓库 README 和现有前端能力概括；不载入、不编造生产指标。
+  - 后台模型、端点、向量、缓存和日志默认完全隐藏；进入「管理」后仍只见业务语言，必须再进入「高级诊断」并确认用途才看到遮罩占位。
+  - 视觉借鉴大型企业设计系统的强层级、直角分区、可访问焦点和渐进披露原则，不复制任何第三方品牌、标识或品牌文案。
+-->
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>企业知识库 · 问答工作区 · 方向 3</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #161616;
+      --ink-soft: #393939;
+      --muted: #6f6f6f;
+      --line: #c6c6c6;
+      --line-strong: #8d8d8d;
+      --surface: #ffffff;
+      --layer-1: #f4f4f4;
+      --layer-2: #e8e8e8;
+      --nav: #161616;
+      --nav-hover: #353535;
+      --accent: #005a73;
+      --accent-hover: #003f52;
+      --accent-pale: #d9eef2;
+      --success: #198038;
+      --warning-bg: #fff4d6;
+      --warning-ink: #5f4700;
+      --danger: #ba1b1b;
+      --focus: #0f62fe;
+      --font-body: "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
+      --font-display: "Bahnschrift", "Microsoft YaHei UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; }
+    body {
+      min-width: 1024px;
+      overflow: hidden;
+      color: var(--ink);
+      background: var(--layer-1);
+      font: 14px/1.65 var(--font-body);
+      text-rendering: optimizeLegibility;
+    }
+    button, input, textarea { font: inherit; }
+    button { color: inherit; }
+    button, [tabindex] { -webkit-tap-highlight-color: transparent; }
+    :focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; }
+    .skip-link {
+      position: fixed; left: 16px; top: -60px; z-index: 100;
+      padding: 10px 16px; background: var(--surface); color: var(--ink);
+    }
+    .skip-link:focus { top: 12px; }
+    .sr-only {
+      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+    }
+    .icon { width: 18px; height: 18px; flex: 0 0 auto; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: square; stroke-linejoin: miter; }
+
+    .app-shell { height: 100vh; display: grid; grid-template-columns: 272px minmax(0, 1fr); }
+    .sidebar {
+      min-height: 0; display: flex; flex-direction: column;
+      background: var(--nav); color: #f4f4f4; border-right: 1px solid #000;
+    }
+    .brand {
+      height: 64px; display: flex; align-items: center; gap: 12px;
+      padding: 0 20px; border-bottom: 1px solid #393939;
+      font: 600 17px/1 var(--font-display); letter-spacing: .02em;
+    }
+    .brand-mark { width: 18px; height: 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
+    .brand-mark i { display: block; background: #f4f4f4; }
+    .brand-mark i:last-child { background: #48a9bd; }
+    .space-wrap { position: relative; border-bottom: 1px solid #393939; }
+    .space-trigger {
+      width: 100%; min-height: 72px; border: 0; background: transparent; color: #fff;
+      display: grid; grid-template-columns: 1fr auto; align-items: center;
+      padding: 12px 16px 12px 20px; text-align: left; cursor: pointer;
+    }
+    .space-trigger:hover, .space-trigger[aria-expanded="true"] { background: var(--nav-hover); }
+    .eyebrow { display: block; font-size: 12px; color: #c6c6c6; letter-spacing: .04em; }
+    .space-trigger strong { display: block; margin-top: 2px; font-size: 16px; }
+    .chev { font-size: 18px; line-height: 1; transition: transform .18s ease; }
+    [aria-expanded="true"] .chev { transform: rotate(180deg); }
+    .space-menu {
+      position: absolute; left: 12px; right: 12px; top: 64px; z-index: 15;
+      background: #262626; border: 1px solid #6f6f6f; box-shadow: 0 10px 28px rgba(0,0,0,.35);
+      padding: 8px 0;
+    }
+    .space-menu[hidden] { display: none; }
+    .space-option {
+      width: 100%; min-height: 48px; padding: 8px 14px; border: 0; background: transparent;
+      color: #fff; display: flex; align-items: center; gap: 10px; text-align: left; cursor: pointer;
+    }
+    .space-option:hover { background: #474747; }
+    .space-option small { display: block; color: #c6c6c6; }
+    .check-slot { width: 18px; font-weight: 700; }
+
+    .new-chat {
+      min-height: 48px; margin: 16px; border: 1px solid #8d8d8d; background: transparent; color: #fff;
+      display: flex; align-items: center; justify-content: center; gap: 9px; cursor: pointer;
+    }
+    .new-chat:hover { background: #353535; border-color: #fff; }
+    .history { min-height: 0; overflow: auto; padding: 6px 0 18px; }
+    .history-title { margin: 0; padding: 8px 20px; color: #a8a8a8; font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: .08em; }
+    .session {
+      width: 100%; min-height: 58px; padding: 10px 20px; border: 0; border-left: 4px solid transparent;
+      background: transparent; color: #e8e8e8; text-align: left; cursor: pointer;
+    }
+    .session:hover { background: #262626; }
+    .session.active { background: #353535; border-left-color: #48a9bd; color: #fff; }
+    .session span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .session small { color: #a8a8a8; }
+    .sidebar-foot { position: relative; margin-top: auto; border-top: 1px solid #393939; }
+    .side-link, .user-trigger {
+      width: 100%; min-height: 48px; border: 0; background: transparent; color: #f4f4f4;
+      display: flex; align-items: center; gap: 12px; padding: 0 20px; text-align: left; cursor: pointer;
+    }
+    .side-link:hover, .user-trigger:hover, .user-trigger[aria-expanded="true"] { background: #353535; }
+    .user-trigger { min-height: 64px; justify-content: space-between; border-top: 1px solid #393939; }
+    .user-meta { min-width: 0; display: flex; align-items: center; gap: 10px; }
+    .avatar { width: 30px; height: 30px; display: grid; place-items: center; background: #e8e8e8; color: #161616; font-weight: 700; }
+    .user-meta strong, .user-meta small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .user-meta small { color: #a8a8a8; font-size: 12px; }
+    .user-menu {
+      position: absolute; left: 16px; right: 16px; bottom: 66px; z-index: 15;
+      background: #fff; color: var(--ink); border: 1px solid var(--line-strong); box-shadow: 0 12px 32px rgba(0,0,0,.35);
+      padding: 8px 0;
+    }
+    .user-menu[hidden] { display: none; }
+    .user-menu button { width: 100%; min-height: 44px; border: 0; background: #fff; text-align: left; padding: 0 14px; cursor: pointer; }
+    .user-menu button:hover { background: var(--layer-1); }
+    .user-menu .role-note { padding: 10px 14px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+
+    .workspace { min-width: 0; min-height: 0; display: grid; grid-template-rows: 64px minmax(0, 1fr); }
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between; gap: 24px;
+      padding: 0 24px 0 30px; background: #fff; border-bottom: 1px solid var(--line);
+    }
+    .crumb { min-width: 0; }
+    .crumb small { color: var(--muted); }
+    .crumb strong { display: block; font: 600 18px/1.2 var(--font-display); }
+    .top-actions { display: flex; align-items: center; gap: 4px; }
+    .quiet-btn, .primary-btn, .text-btn {
+      min-height: 44px; border: 1px solid transparent; padding: 0 16px; display: inline-flex;
+      align-items: center; justify-content: center; gap: 8px; cursor: pointer; background: transparent;
+    }
+    .quiet-btn:hover { background: var(--layer-1); }
+    .quiet-btn.bordered { border-color: var(--line-strong); }
+    .primary-btn { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .primary-btn:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+    .primary-btn:disabled { background: #8d8d8d; border-color: #8d8d8d; cursor: not-allowed; }
+    .text-btn { min-height: 40px; color: var(--accent); padding: 0 8px; }
+    .text-btn:hover { background: var(--accent-pale); }
+
+    .work-area { min-height: 0; display: grid; grid-template-columns: minmax(560px, 1fr) 344px; background: #fff; }
+    .chat-column { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; border-right: 1px solid var(--line); }
+    .chat-head {
+      padding: 22px 36px 18px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: 24px; align-items: end;
+    }
+    .chat-head h1 { margin: 0; font: 600 28px/1.2 var(--font-display); letter-spacing: -.01em; }
+    .chat-head p { margin: 5px 0 0; color: var(--muted); }
+    .scope-chip { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; font-size: 13px; color: var(--ink-soft); }
+    .scope-dot { width: 8px; height: 8px; background: var(--success); border-radius: 50%; }
+    .conversation { min-height: 0; overflow: auto; padding: 24px 36px 40px; scroll-behavior: smooth; }
+    .message { max-width: 880px; margin: 0 auto 24px; }
+    .message-label { display: block; margin-bottom: 8px; color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .06em; }
+    .question-box { background: var(--layer-1); padding: 16px 18px; border-top: 2px solid var(--ink); font-size: 16px; line-height: 1.7; }
+    .answer-meta { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; color: var(--muted); }
+    .answer-meta .status { color: var(--success); font-weight: 600; }
+    .answer-body { font-size: 16px; line-height: 1.82; max-width: 780px; }
+    .answer-body p { margin: 0 0 14px; text-wrap: pretty; }
+    .answer-body ol { margin: 8px 0 16px; padding-left: 23px; }
+    .answer-body li { padding-left: 6px; margin: 7px 0; }
+    .cite-ref {
+      width: 25px; height: 25px; margin: 0 2px; border: 1px solid var(--accent); background: #fff; color: var(--accent);
+      font-weight: 700; line-height: 1; cursor: pointer; vertical-align: .08em;
+    }
+    .cite-ref:hover { background: var(--accent); color: #fff; }
+    .answer-note { margin-top: 18px; padding: 12px 14px; background: var(--accent-pale); color: #17353c; font-size: 14px; }
+    .empty-state { max-width: 680px; margin: 16vh auto 0; }
+    .empty-state h2 { margin: 0 0 8px; font: 600 30px/1.2 var(--font-display); }
+    .empty-state p { color: var(--muted); font-size: 16px; }
+    .starter-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 22px; }
+    .starter-row button { min-height: 44px; border: 1px solid var(--line-strong); background: #fff; padding: 0 14px; cursor: pointer; }
+    .starter-row button:hover { background: var(--layer-1); }
+    .composer { padding: 16px 36px 20px; border-top: 1px solid var(--line); background: #fff; }
+    .composer-inner { max-width: 880px; margin: auto; display: grid; grid-template-columns: 1fr 50px; border: 1px solid var(--line-strong); }
+    .composer textarea { min-height: 56px; max-height: 112px; resize: none; border: 0; padding: 15px 16px; color: var(--ink); background: #fff; outline: 0; }
+    .composer textarea:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; }
+    .send-btn { border: 0; background: var(--accent); color: #fff; display: grid; place-items: center; cursor: pointer; }
+    .send-btn:hover { background: var(--accent-hover); }
+    .composer-help { max-width: 880px; margin: 6px auto 0; color: var(--muted); font-size: 12px; }
+
+    .source-column { min-width: 0; min-height: 0; background: var(--layer-1); display: grid; grid-template-rows: auto minmax(0,1fr) auto; }
+    .source-head { padding: 24px 22px 18px; border-bottom: 1px solid var(--line); }
+    .source-head h2 { margin: 0; font: 600 20px/1.2 var(--font-display); }
+    .source-head p { margin: 5px 0 0; color: var(--muted); }
+    .source-list { overflow: auto; padding: 0 22px; }
+    .source-item { padding: 20px 0; border-bottom: 1px solid var(--line); }
+    .source-index { display: inline-grid; place-items: center; width: 25px; height: 25px; margin-bottom: 10px; background: var(--ink); color: #fff; font-weight: 700; }
+    .source-item h3 { margin: 0; font-size: 15px; }
+    .source-location { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; }
+    .source-item p { margin: 10px 0 12px; color: var(--ink-soft); line-height: 1.7; text-wrap: pretty; }
+    .source-item button { min-height: 40px; padding: 0 10px; border: 1px solid var(--line-strong); background: transparent; cursor: pointer; }
+    .source-item button:hover { background: #fff; }
+    .trust-note { padding: 14px 22px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+
+    .backdrop { position: fixed; inset: 0; z-index: 40; background: rgba(0,0,0,.42); opacity: 0; pointer-events: none; transition: opacity .18s ease; }
+    .backdrop.open { opacity: 1; pointer-events: auto; }
+    .drawer {
+      position: fixed; top: 0; right: 0; z-index: 50; width: min(520px, 46vw); height: 100%;
+      background: #fff; border-left: 1px solid #8d8d8d; box-shadow: -12px 0 28px rgba(0,0,0,.18);
+      transform: translateX(102%); transition: transform .22s ease; display: grid; grid-template-rows: auto minmax(0, 1fr) auto;
+    }
+    .drawer.open { transform: translateX(0); }
+    .drawer-head { min-height: 72px; padding: 14px 18px 14px 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
+    .drawer-head small { color: var(--muted); }
+    .drawer-head h2 { margin: 1px 0 0; font: 600 22px/1.2 var(--font-display); }
+    .close-btn { width: 44px; height: 44px; border: 0; background: transparent; font-size: 25px; cursor: pointer; }
+    .close-btn:hover { background: var(--layer-1); }
+    .drawer-body { overflow: auto; padding: 24px; }
+    .drawer-foot { padding: 16px 24px; border-top: 1px solid var(--line); display: flex; justify-content: flex-end; gap: 8px; }
+
+    .source-detail .file-kicker { color: var(--accent); font-weight: 700; letter-spacing: .04em; }
+    .source-detail h3 { margin: 6px 0 3px; font: 600 24px/1.25 var(--font-display); }
+    .source-detail .location { color: var(--muted); }
+    .quote-block { margin: 24px 0; padding: 20px 0; border-top: 2px solid var(--ink); border-bottom: 1px solid var(--line); font-size: 16px; line-height: 1.85; }
+    .detail-list { margin: 0; padding-left: 20px; }
+    .detail-list li { margin: 8px 0; }
+
+    .manage-intro { padding: 16px; background: var(--layer-1); margin-bottom: 24px; }
+    .manage-intro strong { display: block; margin-bottom: 3px; }
+    .manage-grid { border-top: 1px solid var(--line); }
+    .manage-row {
+      width: 100%; min-height: 66px; padding: 11px 0; border: 0; border-bottom: 1px solid var(--line); background: #fff;
+      display: grid; grid-template-columns: 1fr auto; align-items: center; text-align: left; cursor: pointer;
+    }
+    .manage-row:hover { background: var(--layer-1); }
+    .manage-row strong, .manage-row small { display: block; }
+    .manage-row small { color: var(--muted); }
+    .manage-row .arrow { padding: 0 14px; font-size: 20px; }
+    .diagnostic-gate { margin-top: 28px; border-top: 4px solid var(--ink); background: var(--layer-1); padding: 18px; }
+    .diagnostic-gate h3 { margin: 0 0 6px; font: 600 18px/1.3 var(--font-display); }
+    .diagnostic-gate p { margin: 0 0 14px; color: var(--ink-soft); }
+    .warning-box { background: var(--warning-bg); color: var(--warning-ink); padding: 14px 16px; border-top: 3px solid #b28600; margin-bottom: 20px; }
+    .permission-line { display: flex; justify-content: space-between; gap: 16px; padding: 13px 0; border-bottom: 1px solid var(--line); }
+    .permission-line span { color: var(--muted); }
+    .diagnostic-item { display: grid; grid-template-columns: 160px 1fr; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+    .diagnostic-item span { color: var(--muted); }
+    .masked { letter-spacing: .18em; color: var(--ink); }
+    .prototype-note { margin-top: 20px; padding: 14px; border: 1px dashed var(--line-strong); color: var(--muted); }
+
+    .toast {
+      position: fixed; left: 50%; bottom: 26px; z-index: 80; transform: translate(-50%, 16px);
+      min-width: 280px; padding: 12px 16px; background: var(--ink); color: #fff; box-shadow: 0 8px 22px rgba(0,0,0,.25);
+      opacity: 0; pointer-events: none; transition: .2s ease;
+    }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    @media (max-width: 1180px) {
+      .app-shell { grid-template-columns: 232px minmax(0, 1fr); }
+      .source-column { display: none; }
+      .work-area { grid-template-columns: 1fr; }
+      .chat-head, .conversation { padding-left: 28px; padding-right: 28px; }
+      .composer { padding-left: 28px; padding-right: 28px; }
+      .drawer { width: 52vw; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">跳到主要内容</a>
+  <svg class="sr-only" aria-hidden="true" width="0" height="0">
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-doc" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6zM14 3v5h5M9 12h6M9 16h6"/></symbol>
+    <symbol id="i-manage" viewBox="0 0 24 24"><path d="M4 6h16M7 6V4h10v2M6 10v10h12V10M10 10v10M14 10v10"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="m3 4 18 8-18 8 4-8zM7 12h14"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  </svg>
+
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="主要导航">
+      <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span>企业知识库</span></div>
+
+      <div class="space-wrap">
+        <button class="space-trigger" id="spaceTrigger" type="button" aria-expanded="false" aria-controls="spaceMenu">
+          <span><span class="eyebrow">当前知识空间</span><strong>JAVA-Redis</strong></span><span class="chev" aria-hidden="true">⌄</span>
+        </button>
+        <div class="space-menu" id="spaceMenu" role="menu" hidden>
+          <button class="space-option" role="menuitem" type="button" data-space="JAVA-Redis"><span class="check-slot">✓</span><span><strong>JAVA-Redis</strong><small>当前范围</small></span></button>
+          <button class="space-option" role="menuitem" type="button" data-space="all"><span class="check-slot"></span><span><strong>全部可访问知识</strong><small>仅汇总你有权限查看的空间</small></span></button>
+        </div>
+      </div>
+
+      <button class="new-chat" id="newChat" type="button"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>新建对话</button>
+
+      <nav class="history" aria-label="会话历史">
+        <h2 class="history-title">最近会话</h2>
+        <button class="session active" type="button" data-session="parse"><span>文档解析失败后的处理</span><small>当前会话</small></button>
+        <button class="session" type="button" data-session="deploy"><span>Docker 生产部署方式</span><small>部署与运维</small></button>
+        <button class="session" type="button" data-session="search"><span>混合检索如何排序</span><small>检索原理</small></button>
+      </nav>
+
+      <div class="sidebar-foot">
+        <button class="side-link" id="documentEntry" type="button"><svg class="icon" aria-hidden="true"><use href="#i-doc"/></svg><span>文档</span></button>
+        <button class="side-link" id="manageEntry" type="button"><svg class="icon" aria-hidden="true"><use href="#i-manage"/></svg><span>管理</span></button>
+        <button class="user-trigger" id="userTrigger" type="button" aria-expanded="false" aria-controls="userMenu">
+          <span class="user-meta"><span class="avatar" aria-hidden="true">D</span><span><strong>demo_admin</strong><small>系统管理员</small></span></span><span class="chev" aria-hidden="true">⌃</span>
+        </button>
+        <div class="user-menu" id="userMenu" role="menu" hidden>
+          <div class="role-note">当前角色用于演示完整权限分层</div>
+          <button type="button" role="menuitem" data-user-action="profile">个人设置</button>
+          <button type="button" role="menuitem" data-user-action="logout">退出登录</button>
+        </div>
+      </div>
+    </aside>
+
+    <main class="workspace" id="main-content" tabindex="-1">
+      <header class="topbar">
+        <div class="crumb"><small>知识空间 / JAVA-Redis</small><strong id="pageTitle">问答工作区</strong></div>
+        <div class="top-actions">
+          <button class="quiet-btn" id="topDocuments" type="button"><svg class="icon" aria-hidden="true"><use href="#i-doc"/></svg>文档</button>
+          <button class="quiet-btn bordered" id="topManage" type="button"><svg class="icon" aria-hidden="true"><use href="#i-manage"/></svg>管理</button>
+        </div>
+      </header>
+
+      <section class="work-area" aria-label="问答工作区">
+        <div class="chat-column">
+          <header class="chat-head">
+            <div><h1 id="conversationTitle">文档解析失败后的处理</h1><p>答案只基于你有权访问的企业资料</p></div>
+            <div class="scope-chip"><span class="scope-dot" aria-hidden="true"></span><span id="scopeLabel">范围：JAVA-Redis</span></div>
+          </header>
+
+          <div class="conversation" id="conversation" aria-live="polite">
+            <article class="message" id="questionMessage">
+              <span class="message-label">你的问题</span>
+              <div class="question-box" id="questionText">Java-Redis 项目中的文档解析失败后，系统会如何处理？</div>
+            </article>
+            <article class="message" id="answerMessage">
+              <span class="message-label">知识库回答</span>
+              <div class="answer-meta"><span class="status">回答完成</span><span aria-hidden="true">·</span><span>依据 2 处文档内容</span></div>
+              <div class="answer-body" id="answerBody">
+                <p>系统会把文档解析放入异步任务处理。若处理失败，文档与任务会进入失败状态，并保留可供管理员查看的失败原因和任务日志；失败内容不会成为可用于问答的检索内容。<button class="cite-ref" type="button" aria-label="查看引用 1" data-source="1">1</button></p>
+                <p>知识库管理员可在文档页或任务中心发起重新处理；任务中心支持失败任务筛选、单条或批量重试。若问题持续出现，再由有权限的系统管理员进入高级诊断排查运行环境。<button class="cite-ref" type="button" aria-label="查看引用 2" data-source="2">2</button></p>
+                <ol>
+                  <li>普通员工只会看到「处理中」或「需处理」等业务状态。</li>
+                  <li>知识库管理员负责重试失败文件并查看可行动的原因。</li>
+                  <li>模型、向量、缓存与原始日志保留在二级诊断入口。</li>
+                </ol>
+                <div class="answer-note">这条回答不会展示模型名称、检索分数、缓存命中或接口耗时。</div>
+              </div>
+            </article>
+          </div>
+
+          <form class="composer" id="composer">
+            <label class="sr-only" for="questionInput">继续提问</label>
+            <div class="composer-inner">
+              <textarea id="questionInput" rows="1" placeholder="继续提问，或粘贴需要核对的内容"></textarea>
+              <button class="send-btn" type="submit" aria-label="发送问题"><svg class="icon" aria-hidden="true"><use href="#i-send"/></svg></button>
+            </div>
+            <div class="composer-help">Enter 发送 · Shift + Enter 换行 · 回答范围受你的访问权限约束</div>
+          </form>
+        </div>
+
+        <aside class="source-column" aria-label="引用来源">
+          <header class="source-head"><h2>来源</h2><p>阅读定位，而不是检索调试数据</p></header>
+          <div class="source-list">
+            <article class="source-item">
+              <span class="source-index">1</span><h3>README.md</h3><span class="source-location">核心能力 · 异步文档任务</span>
+              <p>文档解析包含进度轮询、状态机、失败重试和任务日志。</p>
+              <button type="button" data-source="1">查看来源</button>
+            </article>
+            <article class="source-item">
+              <span class="source-index">2</span><h3>README.md</h3><span class="source-location">功能模块 · 任务中心</span>
+              <p>任务中心支持任务筛选、解析进度、失败原因、单条与批量重试及任务日志。</p>
+              <button type="button" data-source="2">查看来源</button>
+            </article>
+          </div>
+          <div class="trust-note">引用只显示可读文档定位与摘要。内部切片标识和评分已隐藏。</div>
+        </aside>
+      </section>
+    </main>
+  </div>
+
+  <div class="backdrop" id="backdrop" aria-hidden="true"></div>
+
+  <aside class="drawer" id="sourceDrawer" role="dialog" aria-modal="true" aria-labelledby="sourceDrawerTitle" aria-hidden="true">
+    <header class="drawer-head"><div><small>引用详情</small><h2 id="sourceDrawerTitle">README.md</h2></div><button class="close-btn" type="button" data-close aria-label="关闭来源详情">×</button></header>
+    <div class="drawer-body source-detail" id="sourceDrawerBody"></div>
+    <footer class="drawer-foot"><button class="quiet-btn bordered" type="button" data-close>返回回答</button></footer>
+  </aside>
+
+  <aside class="drawer" id="manageDrawer" role="dialog" aria-modal="true" aria-labelledby="manageDrawerTitle" aria-hidden="true">
+    <header class="drawer-head"><div><small>JAVA-Redis</small><h2 id="manageDrawerTitle">知识空间管理</h2></div><button class="close-btn" type="button" data-close aria-label="关闭管理面板">×</button></header>
+    <div class="drawer-body" id="manageBody">
+      <div class="manage-intro"><strong>内容管理员视图</strong><span>这里只展示资料与成员相关的可行动任务，不显示底层运行配置。</span></div>
+      <div class="manage-grid">
+        <button class="manage-row" type="button" data-manage-action="docs"><span><strong>文档与上传</strong><small>查看资料是否可用于问答，重新处理失败文件</small></span><span class="arrow">›</span></button>
+        <button class="manage-row" type="button" data-manage-action="members"><span><strong>成员与权限</strong><small>管理谁可以查看或维护此知识空间</small></span><span class="arrow">›</span></button>
+        <button class="manage-row" type="button" data-manage-action="settings"><span><strong>知识空间设置</strong><small>名称、说明、导入与导出</small></span><span class="arrow">›</span></button>
+      </div>
+      <section class="diagnostic-gate">
+        <h3>高级诊断</h3>
+        <p>模型、索引、缓存、运行健康与原始日志仅供系统管理员排障。</p>
+        <button class="quiet-btn bordered" id="openDiagnostics" type="button"><svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg>进入管理员诊断</button>
+      </section>
+    </div>
+    <footer class="drawer-foot"><button class="quiet-btn bordered" type="button" data-close>完成</button></footer>
+  </aside>
+
+  <aside class="drawer" id="diagnosticDrawer" role="dialog" aria-modal="true" aria-labelledby="diagnosticDrawerTitle" aria-hidden="true">
+    <header class="drawer-head"><div><small>系统管理员专属</small><h2 id="diagnosticDrawerTitle">高级诊断</h2></div><button class="close-btn" type="button" data-close aria-label="关闭高级诊断">×</button></header>
+    <div class="drawer-body" id="diagnosticBody">
+      <div id="diagnosticGateView">
+        <div class="warning-box"><strong>仅用于排障</strong><br>此区域可能包含模型端点、基础设施状态和原始日志。请勿截图、复制或分享敏感配置。</div>
+        <div class="permission-line"><span>当前账户</span><strong>demo_admin</strong></div>
+        <div class="permission-line"><span>要求角色</span><strong>系统管理员</strong></div>
+        <div class="permission-line"><span>本次目的</span><strong>故障诊断</strong></div>
+        <p class="prototype-note">原型不会连接生产环境，也不会显示真实密钥、端点、日志或运行指标。</p>
+      </div>
+      <div id="diagnosticDataView" hidden>
+        <div class="warning-box"><strong>敏感信息已遮罩</strong><br>真实实现应记录访问审计，并根据环境返回即时状态。</div>
+        <div class="diagnostic-item"><span>对话模型</span><strong class="masked">••••••••</strong></div>
+        <div class="diagnostic-item"><span>向量模型端点</span><strong class="masked">••••••••</strong></div>
+        <div class="diagnostic-item"><span>向量存储</span><strong>由运行环境提供</strong></div>
+        <div class="diagnostic-item"><span>缓存与协调</span><strong>由运行环境提供</strong></div>
+        <div class="diagnostic-item"><span>原始任务日志</span><strong>未在原型中载入</strong></div>
+        <p class="prototype-note">这里刻意不展示虚构健康状态、命中率、延迟或其他指标。</p>
+      </div>
+    </div>
+    <footer class="drawer-foot"><button class="quiet-btn bordered" type="button" data-close>取消</button><button class="primary-btn" id="confirmDiagnostics" type="button">确认进入</button></footer>
+  </aside>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    (() => {
+      const $ = (selector, root = document) => root.querySelector(selector);
+      const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+      const backdrop = $('#backdrop');
+      const toast = $('#toast');
+      let activeDrawer = null;
+      let lastFocus = null;
+      let toastTimer = null;
+
+      const sourceData = {
+        1: {
+          section: '核心能力 · 异步文档任务',
+          quote: 'PDF、DOC、DOCX、Markdown、TXT 等文档采用异步解析，并包含进度轮询、状态机、失败重试和任务日志。',
+          points: ['失败会被明确记录为任务状态。', '管理员可依据失败原因决定是否重新处理。', '失败内容不会被当作已完成资料进入问答范围。']
+        },
+        2: {
+          section: '功能模块 · 任务中心',
+          quote: '任务中心支持任务筛选、解析进度、失败原因、单条与批量重试，以及任务日志。',
+          points: ['内容管理员先处理可行动的文件问题。', '原始运行信息不需要出现在普通问答页。', '持续故障再升级到系统管理员诊断。']
+        }
+      };
+
+      const sessionData = {
+        parse: {
+          title: '文档解析失败后的处理',
+          question: 'Java-Redis 项目中的文档解析失败后，系统会如何处理？',
+          answer: `<p>系统会把文档解析放入异步任务处理。若处理失败，文档与任务会进入失败状态，并保留可供管理员查看的失败原因和任务日志；失败内容不会成为可用于问答的检索内容。<button class="cite-ref" type="button" aria-label="查看引用 1" data-source="1">1</button></p><p>知识库管理员可在文档页或任务中心发起重新处理；任务中心支持失败任务筛选、单条或批量重试。若问题持续出现，再由有权限的系统管理员进入高级诊断排查运行环境。<button class="cite-ref" type="button" aria-label="查看引用 2" data-source="2">2</button></p><ol><li>普通员工只会看到「处理中」或「需处理」等业务状态。</li><li>知识库管理员负责重试失败文件并查看可行动的原因。</li><li>模型、向量、缓存与原始日志保留在二级诊断入口。</li></ol><div class="answer-note">这条回答不会展示模型名称、检索分数、缓存命中或接口耗时。</div>`
+        },
+        deploy: {
+          title: 'Docker 生产部署方式',
+          question: '这个项目在生产环境中如何通过 Docker 部署？',
+          answer: `<p>仓库提供生产编排文件，可通过环境变量注入数据库、鉴权与模型配置，再使用 Docker Compose 构建并启动服务。</p><p>生产环境只需暴露前端反向代理端口；数据库、缓存、向量存储和后端服务应保持在容器内部网络。具体命令与环境变量示例位于 README 的「快速启动」和「安全说明」。</p><div class="answer-note">部署密钥和内部服务地址不会显示在普通问答工作区。</div>`
+        },
+        search: {
+          title: '混合检索如何排序',
+          question: 'JAVA-Redis 项目中的混合检索如何组织候选结果？',
+          answer: `<p>系统先通过向量检索召回候选内容，再结合关键词命中进行融合排序，并将结果用于回答与引用溯源。</p><p>普通用户只需要看到答案和可读来源；向量分、关键词分、候选扫描上限等调试信息应放在管理员专属诊断区域。</p><div class="answer-note">本方向把「可信来源」放在前台，把「排序解释」保留给排障场景。</div>`
+        }
+      };
+
+      function showToast(message) {
+        clearTimeout(toastTimer);
+        toast.textContent = message;
+        toast.classList.add('show');
+        toastTimer = setTimeout(() => toast.classList.remove('show'), 2600);
+      }
+
+      function openDrawer(drawer) {
+        if (activeDrawer && activeDrawer !== drawer) closeDrawer(false);
+        lastFocus = document.activeElement;
+        activeDrawer = drawer;
+        drawer.classList.add('open');
+        drawer.setAttribute('aria-hidden', 'false');
+        backdrop.classList.add('open');
+        backdrop.setAttribute('aria-hidden', 'false');
+        document.body.dataset.drawerOpen = 'true';
+        setTimeout(() => $('.close-btn', drawer)?.focus(), 30);
+      }
+
+      function closeDrawer(restoreFocus = true) {
+        if (!activeDrawer) return;
+        activeDrawer.classList.remove('open');
+        activeDrawer.setAttribute('aria-hidden', 'true');
+        backdrop.classList.remove('open');
+        backdrop.setAttribute('aria-hidden', 'true');
+        const focusTarget = lastFocus;
+        activeDrawer = null;
+        delete document.body.dataset.drawerOpen;
+        if (restoreFocus && focusTarget instanceof HTMLElement) setTimeout(() => focusTarget.focus(), 40);
+      }
+
+      function openSource(index) {
+        const source = sourceData[index];
+        if (!source) return;
+        $('#sourceDrawerBody').innerHTML = `<span class="file-kicker">README.md</span><h3>${source.section}</h3><div class="location">仓库当前文档 · 可读定位</div><div class="quote-block">${source.quote}</div><h4>与当前回答的关系</h4><ul class="detail-list">${source.points.map(item => `<li>${item}</li>`).join('')}</ul><p class="prototype-note">未展示内部切片标识、模型名称、检索分数、缓存命中或耗时。</p>`;
+        openDrawer($('#sourceDrawer'));
+      }
+
+      function toggleMenu(trigger, menu, force) {
+        const next = typeof force === 'boolean' ? force : trigger.getAttribute('aria-expanded') !== 'true';
+        trigger.setAttribute('aria-expanded', String(next));
+        menu.hidden = !next;
+      }
+
+      $('#spaceTrigger').addEventListener('click', () => toggleMenu($('#spaceTrigger'), $('#spaceMenu')));
+      $('#userTrigger').addEventListener('click', () => toggleMenu($('#userTrigger'), $('#userMenu')));
+
+      $$('.space-option').forEach(button => button.addEventListener('click', () => {
+        const isAll = button.dataset.space === 'all';
+        $('#scopeLabel').textContent = isAll ? '范围：全部可访问知识' : '范围：JAVA-Redis';
+        $('.space-trigger strong').textContent = isAll ? '全部可访问知识' : 'JAVA-Redis';
+        $$('.space-option .check-slot').forEach(slot => slot.textContent = '');
+        $('.check-slot', button).textContent = '✓';
+        toggleMenu($('#spaceTrigger'), $('#spaceMenu'), false);
+        showToast(isAll ? '已切换为全部可访问知识；结果仍受权限约束' : '已切换到 JAVA-Redis');
+      }));
+
+      $$('.session').forEach(button => button.addEventListener('click', () => {
+        const data = sessionData[button.dataset.session];
+        if (!data) return;
+        $$('.session').forEach(item => item.classList.remove('active'));
+        button.classList.add('active');
+        $('#conversationTitle').textContent = data.title;
+        $('#questionText').textContent = data.question;
+        $('#answerBody').innerHTML = data.answer;
+        $('#answerMessage').hidden = false;
+        $('#questionMessage').hidden = false;
+        $('#conversation').scrollTop = 0;
+      }));
+
+      $('#newChat').addEventListener('click', () => {
+        $$('.session').forEach(item => item.classList.remove('active'));
+        $('#conversationTitle').textContent = '新对话';
+        $('#questionMessage').hidden = true;
+        $('#answerMessage').hidden = true;
+        $('#questionInput').value = '';
+        $('#questionInput').focus();
+        showToast('已开始新对话');
+      });
+
+      document.addEventListener('click', event => {
+        const sourceButton = event.target.closest('[data-source]');
+        if (sourceButton) openSource(sourceButton.dataset.source);
+        if (!event.target.closest('.space-wrap')) toggleMenu($('#spaceTrigger'), $('#spaceMenu'), false);
+        if (!event.target.closest('.sidebar-foot')) toggleMenu($('#userTrigger'), $('#userMenu'), false);
+      });
+
+      function openManagement() { openDrawer($('#manageDrawer')); }
+      $('#manageEntry').addEventListener('click', openManagement);
+      $('#topManage').addEventListener('click', openManagement);
+      function documentNotice() { showToast('文档中心将展示「可用 / 处理中 / 需处理」等业务状态'); }
+      $('#documentEntry').addEventListener('click', documentNotice);
+      $('#topDocuments').addEventListener('click', documentNotice);
+
+      $$('.manage-row').forEach(button => button.addEventListener('click', () => {
+        const labels = { docs: '文档管理', members: '成员与权限', settings: '知识空间设置' };
+        showToast(`${labels[button.dataset.manageAction]}：此方向仅演示入口层级`);
+      }));
+
+      $('#openDiagnostics').addEventListener('click', () => {
+        closeDrawer(false);
+        $('#diagnosticGateView').hidden = false;
+        $('#diagnosticDataView').hidden = true;
+        $('#confirmDiagnostics').hidden = false;
+        openDrawer($('#diagnosticDrawer'));
+      });
+
+      $('#confirmDiagnostics').addEventListener('click', () => {
+        $('#diagnosticGateView').hidden = true;
+        $('#diagnosticDataView').hidden = false;
+        $('#confirmDiagnostics').hidden = true;
+        $('#diagnosticDrawerTitle').textContent = '高级诊断 · 已遮罩';
+        showToast('已进入受限诊断视图');
+      });
+
+      $$('[data-close]').forEach(button => button.addEventListener('click', () => closeDrawer()));
+      backdrop.addEventListener('click', () => closeDrawer());
+
+      $('#composer').addEventListener('submit', event => {
+        event.preventDefault();
+        const value = $('#questionInput').value.trim();
+        if (!value) { $('#questionInput').focus(); showToast('请先输入问题'); return; }
+        $('#conversationTitle').textContent = '当前提问';
+        $('#questionText').textContent = value;
+        $('#questionMessage').hidden = false;
+        $('#answerMessage').hidden = true;
+        $('#questionInput').value = '';
+        showToast('原型已收到问题；生产版本将在权限范围内检索');
+      });
+
+      $('#questionInput').addEventListener('keydown', event => {
+        if (event.key === 'Enter' && !event.shiftKey) {
+          event.preventDefault();
+          $('#composer').requestSubmit();
+        }
+      });
+
+      $$('.user-menu button').forEach(button => button.addEventListener('click', () => {
+        toggleMenu($('#userTrigger'), $('#userMenu'), false);
+        showToast(button.dataset.userAction === 'profile' ? '个人设置入口' : '原型不会执行真实退出');
+      }));
+
+      document.addEventListener('keydown', event => {
+        if (event.key === 'Escape') {
+          if (activeDrawer) closeDrawer();
+          toggleMenu($('#spaceTrigger'), $('#spaceMenu'), false);
+          toggleMenu($('#userTrigger'), $('#userMenu'), false);
+        }
+        if (event.key === 'Tab' && activeDrawer) {
+          const focusable = $$('button:not([hidden]), [href], textarea, input, [tabindex]:not([tabindex="-1"])', activeDrawer).filter(el => !el.disabled && el.offsetParent !== null);
+          if (!focusable.length) return;
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+          else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

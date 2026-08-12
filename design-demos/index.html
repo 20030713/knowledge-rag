@@ -1,0 +1,59 @@
+<!doctype html>
+<!--
+  设计评审入口：仅用于并排比较三套 UI 方向，不是生产页面。
+  三套方案使用同一问题与同一信息边界，方便只比较视觉和交互哲学。
+-->
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>企业知识库 UI 升级 · 四方向对比</title>
+  <style>
+    :root{color-scheme:light;--ink:#171a18;--muted:#626863;--line:#d9ddd9;--paper:#f3f3ef;--white:#fff;--green:#174c3d;--lime:#c9f277;--blue:#007d99}
+    *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:"Microsoft YaHei UI","Noto Sans CJK SC",sans-serif;text-rendering:optimizeLegibility}
+    button,a{font:inherit}a{color:inherit}.mast{padding:56px clamp(24px,5vw,76px) 34px;border-bottom:1px solid var(--line);display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,480px);gap:54px;align-items:end}
+    .eyebrow{font:700 12px/1.2 Consolas,monospace;letter-spacing:.16em;color:var(--green);text-transform:uppercase}.mast h1{font-family:Georgia,"Songti SC",serif;font-size:clamp(38px,5vw,72px);line-height:1.06;letter-spacing:-.035em;margin:14px 0 0;max-width:900px}.mast p{margin:0;color:var(--muted);line-height:1.8;font-size:15px}.guardrail{border-top:3px solid var(--ink);padding-top:16px}.guardrail strong{display:block;margin-bottom:8px}.board{padding:38px clamp(24px,5vw,76px) 64px}.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px}.card{background:var(--white);border:1px solid var(--line);min-width:0;display:flex;flex-direction:column}.shot{display:block;aspect-ratio:16/9;overflow:hidden;border-bottom:1px solid var(--line);background:#e9ece9}.shot img{width:100%;height:100%;object-fit:cover;object-position:top left;transition:transform .35s ease}.shot:hover img{transform:scale(1.018)}.copy{padding:24px;display:grid;gap:16px;flex:1}.num{font:700 12px/1 Consolas,monospace;color:var(--muted)}.copy h2{margin:0;font-family:Georgia,"Songti SC",serif;font-size:28px;line-height:1.15}.copy p{margin:0;color:var(--muted);line-height:1.7;font-size:14px}.tags{display:flex;flex-wrap:wrap;gap:7px}.tag{border:1px solid var(--line);padding:5px 8px;font-size:12px}.actions{display:flex;gap:8px;margin-top:auto}.actions a{min-height:44px;display:inline-flex;align-items:center;justify-content:center;padding:0 14px;border:1px solid var(--ink);text-decoration:none;font-weight:700;font-size:13px}.actions a:first-child{background:var(--ink);color:#fff}.actions a:focus-visible,.shot:focus-visible{outline:3px solid rgba(0,125,153,.35);outline-offset:3px}
+    .decision{margin-top:42px;background:var(--white);border:1px solid var(--line);display:grid;grid-template-columns:260px minmax(0,1fr)}.decision>header{background:var(--green);color:#fff;padding:28px}.decision h3{margin:0 0 12px;font:28px/1.15 Georgia,"Songti SC",serif}.decision header p{font-size:13px;line-height:1.7;margin:0;color:#dfeae6}.matrix{overflow:auto}.matrix table{border-collapse:collapse;width:100%;min-width:760px}.matrix th,.matrix td{text-align:left;padding:18px 20px;border-bottom:1px solid var(--line);font-size:13px;line-height:1.55}.matrix th{font-size:12px;color:var(--muted);letter-spacing:.08em}.matrix tr:last-child td{border-bottom:0}.pick{font-weight:800}.recommend{background:var(--lime);padding:2px 6px;color:#122414}.privacy{margin-top:22px;border:1px solid var(--line);background:#fff;padding:24px;display:grid;grid-template-columns:220px 1fr;gap:32px}.privacy h3{font:26px/1.2 Georgia,"Songti SC",serif;margin:0}.layers{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line)}.layer{padding:18px;background:#fff}.layer b{display:block;margin-bottom:7px}.layer span{font-size:13px;line-height:1.65;color:var(--muted)}
+    @media(max-width:1050px){.cards{grid-template-columns:1fr}.shot{aspect-ratio:16/7}.mast{grid-template-columns:1fr}.decision{grid-template-columns:1fr}.privacy{grid-template-columns:1fr}}
+    @media(max-width:650px){.mast{padding-top:32px}.shot{aspect-ratio:16/10}.layers{grid-template-columns:1fr}.actions{flex-direction:column}.actions a{width:100%}}
+  </style>
+</head>
+<body>
+  <header class="mast">
+    <div><div class="eyebrow">Design direction review · 01—04</div><h1>先选产品气质，再进入全面升级。</h1></div>
+    <div class="guardrail"><strong>四版共同边界</strong><p>普通用户只接触知识范围、问题、答案、可读来源和业务状态；模型、向量、缓存、限流、运行配置与原始日志只在管理员二级诊断入口按需出现。</p></div>
+  </header>
+  <main class="board">
+    <section class="cards" aria-label="三个设计方向">
+      <article class="card">
+        <a class="shot" href="01-quiet-gallery.html" aria-label="打开方向一完整原型"><img src="01-quiet-gallery.png" alt="安静知识画廊方向截图"></a>
+        <div class="copy"><span class="num">DIRECTION 01 · 秒数轮盘</span><h2>安静知识画廊</h2><p>把答案与来源当成主要内容，界面主动退后。适合专业知识沉淀、制度查询与需要长时间阅读的团队。</p><div class="tags"><span class="tag">低视觉噪音</span><span class="tag">出版式排版</span><span class="tag">来源可核对</span></div><div class="actions"><a href="01-quiet-gallery.html">打开可点击原型</a><a href="01-quiet-gallery.png">查看截图</a></div></div>
+      </article>
+      <article class="card">
+        <a class="shot" href="02-answer-first.html" aria-label="打开方向二完整原型"><img src="02-answer-first.png" alt="答案优先企业搜索方向截图"></a>
+        <div class="copy"><span class="num">DIRECTION 02 · 现实参照</span><h2>答案优先搜索</h2><p>借鉴成熟企业搜索的任务结构：选范围、问问题、读答案、验来源。最容易让普通员工快速上手。</p><div class="tags"><span class="tag">任务最直接</span><span class="tag">企业搜索</span><span class="tag">学习成本低</span></div><div class="actions"><a href="02-answer-first.html">打开可点击原型</a><a href="02-answer-first.png">查看截图</a></div></div>
+      </article>
+      <article class="card">
+        <a class="shot" href="03-enterprise-carbon.html" aria-label="打开方向三完整原型"><img src="03-enterprise-carbon.png" alt="企业渐进披露方向截图"></a>
+        <div class="copy"><span class="num">DIRECTION 03 · 最佳设计团队</span><h2>企业渐进披露</h2><p>强调角色、状态、可访问性与可预测操作。适合管理员使用频繁、流程复杂、未来功能还会持续增长的系统。</p><div class="tags"><span class="tag">严谨高密度</span><span class="tag">权限清晰</span><span class="tag">易扩展</span></div><div class="actions"><a href="03-enterprise-carbon.html">打开可点击原型</a><a href="03-enterprise-carbon.png">查看截图</a></div></div>
+      </article>
+      <article class="card">
+        <a class="shot" href="04-cobalt-command-center.html" aria-label="打开方向四完整原型"><img src="04-cobalt-command-center.png" alt="钴蓝知识指挥台方向截图"></a>
+        <div class="copy"><span class="num">DIRECTION 04 · 联网重构</span><h2>钴蓝知识指挥台</h2><p>全局产品轨道、会话侧栏、中央答案画布与深色证据舱共同组成更强烈的新布局；色彩、空间比例和交互重心都与前三版拉开。</p><div class="tags"><span class="tag">钴蓝 × 杏橙</span><span class="tag">双侧栏</span><span class="tag">证据舱</span></div><div class="actions"><a href="04-cobalt-command-center.html">打开可点击原型</a><a href="04-cobalt-command-center.png">查看截图</a></div></div>
+      </article>
+    </section>
+
+    <section class="decision">
+      <header><h3>怎么选？</h3><p>不要只看配色。重点感受：进入页面后第一眼知道做什么吗？答案是否好读？来源是否好核对？管理入口是否既找得到又不打扰？</p></header>
+      <div class="matrix"><table><thead><tr><th>方向</th><th>最强优势</th><th>主要取舍</th><th>适合选择条件</th></tr></thead><tbody>
+        <tr><td class="pick">01 安静画廊</td><td>阅读品质与专业气质最好</td><td>复杂批量操作需要另做管理页</td><td>知识消费远多于后台管理</td></tr>
+        <tr><td class="pick"><span class="recommend">02 答案优先</span></td><td>主任务最明确，上手最快</td><td>品牌个性需在深化阶段加强</td><td>希望先把普通员工体验做对</td></tr>
+        <tr><td class="pick">03 企业渐进披露</td><td>权限、状态和长期扩展最稳</td><td>视觉更理性，亲和感稍弱</td><td>管理员重度使用、流程复杂</td></tr>
+        <tr><td class="pick"><span class="recommend">04 钴蓝指挥台</span></td><td>品牌辨识度和空间层级最强</td><td>视觉表达更大胆，需要统一全站组件</td><td>希望进行真正的大改版而非局部换皮</td></tr>
+      </tbody></table></div>
+    </section>
+
+    <section class="privacy"><h3>统一的信息分层</h3><div class="layers"><div class="layer"><b>员工默认视图</b><span>知识范围、会话、答案、可读引用、可行动的业务状态。</span></div><div class="layer"><b>知识管理员</b><span>文档、成员、重新处理、导入导出与知识空间设置。</span></div><div class="layer"><b>系统管理员</b><span>模型、向量、缓存、限流、组件健康、诊断与原始日志。</span></div></div></section>
+  </main>
+</body>
+</html>

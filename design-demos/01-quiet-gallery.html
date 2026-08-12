@@ -1,0 +1,230 @@
+<!doctype html>
+<!--
+  ASSUMPTIONS / REASONING
+  - 这是 UI 方向探索原型，不是生产实现；数据均来自仓库 README、现有界面与技术文档，没有连接真实 API。
+  - 默认观众是普通员工，核心任务是选择知识范围、提问、阅读可信答案与核对来源；工程术语默认不出现。
+  - 内容管理员能力收进「管理」抽屉；模型、向量、缓存与原始日志再收进二级「高级诊断」确认层。
+  - 方向锚点为「日式留白白盒画廊」：近白背景、纯黑文字、发丝分隔、内容自身成为视觉主体，UI 尽量退隐。
+  - 示例答案仅概括仓库已明确的异步解析、失败状态、任务日志与失败重试能力；诊断区域不展示虚构实时指标。
+  - 本文件自包含、无网络依赖，优先适配 1440×900，并为 1024px 宽度提供可用布局。
+-->
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>企业知识库 · 安静画廊方向</title>
+  <style>
+    :root{
+      --paper:#fafaf8; --white:#fff; --ink:#10110f; --muted:#70736d;
+      --hair:#e8e9e4; --soft:#f1f2ed; --sage:#48655b; --warn:#8a4d2d;
+      --sans:"Yu Gothic UI","Microsoft YaHei UI","Noto Sans CJK SC",sans-serif;
+      --serif:"Songti SC","STSong","SimSun",serif;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px}
+    button,input{font:inherit;color:inherit}
+    button{border:0;background:none;cursor:pointer}
+    button:focus-visible,input:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+    .app{height:100%;display:grid;grid-template-rows:72px minmax(0,1fr)}
+    .topbar{display:grid;grid-template-columns:258px minmax(0,1fr) 162px;align-items:center;border-bottom:1px solid var(--hair);background:rgba(250,250,248,.97);z-index:20}
+    .brand{height:100%;display:flex;align-items:center;padding:0 30px;border-right:1px solid var(--hair);font-family:var(--serif);letter-spacing:.09em;font-size:17px}
+    .brand-mark{width:18px;height:18px;border:1px solid var(--ink);margin-right:12px;position:relative}
+    .brand-mark:after{content:"";position:absolute;left:4px;right:4px;top:8px;border-top:1px solid var(--ink)}
+    .top-title{padding-left:42px;font-size:12px;letter-spacing:.14em;color:var(--muted)}
+    .top-actions{height:100%;border-left:1px solid var(--hair);display:flex;align-items:center;justify-content:center;gap:7px}
+    .avatar{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--ink);color:#fff;font-family:var(--serif);font-size:13px}
+    .user-button{min-height:44px;padding:0 8px;display:flex;align-items:center;gap:9px}
+    .shell{display:grid;grid-template-columns:258px minmax(0,1fr);min-height:0}
+    .sidebar{min-height:0;border-right:1px solid var(--hair);padding:26px 22px 18px;display:flex;flex-direction:column;background:#f8f8f5;position:relative;z-index:12}
+    .eyebrow{font-size:10px;letter-spacing:.18em;color:var(--muted);text-transform:uppercase;margin:0 0 11px 8px}
+    .space-button{width:100%;min-height:54px;padding:0 12px;border-top:1px solid var(--ink);border-bottom:1px solid var(--hair);display:flex;align-items:center;text-align:left;gap:10px}
+    .space-glyph{width:22px;height:22px;border:1px solid var(--ink);display:grid;place-items:center;font-family:var(--serif);font-size:12px}
+    .space-copy{flex:1;min-width:0}.space-copy strong{display:block;font-size:14px}.space-copy span{display:block;font-size:11px;color:var(--muted);margin-top:3px}
+    .chev{font-size:12px;transition:transform .2s}.space-button[aria-expanded="true"] .chev{transform:rotate(180deg)}
+    .space-menu{position:absolute;left:22px;right:22px;top:117px;background:var(--white);border:1px solid var(--ink);padding:7px;box-shadow:0 12px 30px rgba(20,22,18,.08);display:none;z-index:30}
+    .space-menu.open{display:block;animation:reveal .18s ease-out}
+    .menu-option{width:100%;min-height:48px;text-align:left;padding:8px 10px;display:flex;justify-content:space-between;align-items:center}
+    .menu-option:hover{background:var(--soft)}.menu-option small{color:var(--muted)}
+    .new-chat{margin:22px 0 25px;min-height:44px;border:1px solid var(--hair);display:flex;align-items:center;justify-content:space-between;padding:0 12px;background:var(--white)}
+    .new-chat:hover{border-color:var(--ink)}
+    .history{min-height:0;overflow:auto;padding-right:2px}
+    .history-item{width:100%;text-align:left;padding:12px 10px 13px;border-top:1px solid var(--hair);min-height:64px;position:relative}
+    .history-item:last-child{border-bottom:1px solid var(--hair)}
+    .history-item:hover{background:#f2f2ee}.history-item.active:before{content:"";position:absolute;left:0;top:17px;width:2px;height:30px;background:var(--ink)}
+    .history-item strong{display:block;font-size:13px;font-weight:600;padding-left:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .history-item span{display:block;font-size:11px;color:var(--muted);padding-left:8px;margin-top:5px}
+    .sidebar-foot{margin-top:auto;padding-top:18px}
+    .side-link{width:100%;min-height:44px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--hair);padding:0 8px}
+    .side-link:hover{background:var(--soft)}
+    .main{min-width:0;min-height:0;position:relative;overflow:auto;scrollbar-gutter:stable;background:var(--paper)}
+    .canvas{width:min(918px,calc(100% - 88px));margin:0 auto;padding:43px 0 132px}
+    .context-line{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--hair);padding-bottom:17px;margin-bottom:34px}
+    .context-line span{font-size:11px;letter-spacing:.1em;color:var(--muted)}
+    .scope{display:flex;align-items:center;gap:8px;color:var(--sage)!important;letter-spacing:0!important}.scope:before{content:"";width:7px;height:7px;border:1px solid var(--sage);border-radius:50%}
+    .question{max-width:780px;margin-bottom:37px}
+    .question-label{font-size:10px;letter-spacing:.18em;color:var(--muted);margin-bottom:13px}
+    .question h1{font-family:var(--serif);font-weight:400;font-size:29px;line-height:1.48;letter-spacing:.015em;margin:0;text-wrap:pretty}
+    .answer-grid{display:grid;grid-template-columns:84px minmax(0,1fr);gap:28px}
+    .answer-index{font-family:var(--serif);font-size:24px;color:#b2b4ae;border-top:1px solid var(--ink);padding-top:15px}
+    .answer-body{border-top:1px solid var(--ink);padding-top:15px}
+    .answer-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:19px}
+    .answer-head strong{font-size:12px;letter-spacing:.1em}.answer-head span{font-size:11px;color:var(--muted)}
+    .answer-body p{font-size:16px;line-height:1.95;margin:0 0 13px;max-width:720px;text-wrap:pretty}
+    .answer-body ol{margin:12px 0 0;padding:0;list-style:none;counter-reset:steps}
+    .answer-body li{counter-increment:steps;display:grid;grid-template-columns:31px 1fr;gap:12px;padding:10px 0;border-top:1px solid var(--hair);line-height:1.7;font-size:14px}
+    .answer-body li:before{content:"0" counter(steps);font-family:var(--serif);color:var(--muted)}
+    .source-section{margin-top:36px;border-top:1px solid var(--hair);padding-top:16px}
+    .source-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}.source-title strong{font-size:12px;letter-spacing:.1em}.source-title span{font-size:11px;color:var(--muted)}
+    .source-row{width:100%;min-height:72px;display:grid;grid-template-columns:34px 1fr 18px;gap:14px;align-items:center;text-align:left;border-bottom:1px solid var(--hair);padding:10px 3px}
+    .source-row:hover{background:#f4f4f0}.source-num{font-family:var(--serif);color:var(--muted)}
+    .source-main strong{display:block;font-size:13px;margin-bottom:5px}.source-main span{display:block;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.source-arrow{font-size:17px}
+    .composer-wrap{position:fixed;left:258px;right:0;bottom:0;padding:18px 44px 22px;background:linear-gradient(to bottom,rgba(250,250,248,0),var(--paper) 22%);z-index:10;pointer-events:none}
+    .composer{pointer-events:auto;width:min(918px,calc(100% - 0px));margin:0 auto;background:var(--white);border:1px solid #d7d8d2;min-height:68px;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;padding:8px 10px 8px 20px;box-shadow:0 8px 30px rgba(29,31,27,.06)}
+    .composer input{border:0;background:transparent;height:48px;min-width:0;font-size:14px}.composer input::placeholder{color:#999b95}.composer input:focus{outline:0}
+    .send{height:46px;min-width:84px;background:var(--ink);color:#fff;padding:0 18px;display:flex;align-items:center;justify-content:center;gap:8px}.send:hover{background:#33352f}
+    .backdrop{position:fixed;inset:0;background:rgba(20,21,18,.22);opacity:0;pointer-events:none;transition:opacity .22s;z-index:40}.backdrop.show{opacity:1;pointer-events:auto}
+    .drawer{position:fixed;right:0;top:0;bottom:0;width:min(470px,92vw);background:var(--white);z-index:50;transform:translateX(102%);transition:transform .3s cubic-bezier(.2,.8,.2,1);border-left:1px solid var(--ink);display:flex;flex-direction:column}
+    .drawer.open{transform:translateX(0)}
+    .drawer-head{height:72px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;border-bottom:1px solid var(--hair)}
+    .drawer-head strong{font-family:var(--serif);font-size:19px;font-weight:400}.close{width:44px;height:44px;font-size:25px}
+    .drawer-body{padding:27px 28px;overflow:auto}.drawer-kicker{font-size:10px;letter-spacing:.18em;color:var(--muted);margin-bottom:22px}
+    .source-quote{font-family:var(--serif);font-size:20px;line-height:1.75;margin:0 0 28px;padding-bottom:25px;border-bottom:1px solid var(--hair)}
+    .meta-row{display:grid;grid-template-columns:110px 1fr;gap:14px;padding:12px 0;border-bottom:1px solid var(--hair);font-size:13px}.meta-row span:first-child{color:var(--muted)}
+    .admin-list{border-top:1px solid var(--ink)}
+    .admin-item{padding:17px 0;border-bottom:1px solid var(--hair);display:flex;justify-content:space-between;gap:20px}.admin-item strong{font-size:14px}.admin-item p{font-size:12px;color:var(--muted);margin:5px 0 0;line-height:1.55}.status{font-size:11px;color:var(--sage);white-space:nowrap}
+    .advanced-entry{margin-top:34px;padding-top:18px;border-top:1px solid var(--ink)}
+    .advanced-entry button{width:100%;min-height:48px;display:flex;justify-content:space-between;align-items:center;text-align:left}.advanced-entry small{display:block;color:var(--muted);margin-top:4px}
+    .notice{background:var(--soft);padding:15px 16px;font-size:12px;line-height:1.7;color:#494b46;margin-bottom:22px}
+    .diag-gate{border-top:1px solid var(--ink);padding-top:24px}.diag-gate h3{font-family:var(--serif);font-weight:400;font-size:22px;margin:0 0 12px}.diag-gate p{font-size:13px;line-height:1.7;color:var(--muted)}
+    .confirm{margin-top:20px;width:100%;height:48px;background:var(--ink);color:#fff}.diag-summary{display:none;margin-top:22px}.diag-summary.show{display:block;animation:reveal .2s ease-out}
+    .masked{font-family:ui-monospace,"Cascadia Mono",monospace;font-size:12px;padding:13px 0;border-bottom:1px solid var(--hair);display:grid;grid-template-columns:105px 1fr;gap:12px}.mask{letter-spacing:.12em;color:#8e908a}
+    .toast{position:fixed;left:50%;bottom:102px;transform:translate(-50%,16px);background:var(--ink);color:#fff;padding:11px 16px;font-size:12px;opacity:0;pointer-events:none;transition:.2s;z-index:80}.toast.show{opacity:1;transform:translate(-50%,0)}
+    @keyframes reveal{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+    @media(max-width:1100px){.topbar{grid-template-columns:226px minmax(0,1fr) 136px}.shell{grid-template-columns:226px}.brand{padding-left:22px}.sidebar{padding-left:16px;padding-right:16px}.space-menu{left:16px;right:16px}.canvas{width:calc(100% - 54px)}.composer-wrap{left:226px;padding-left:27px;padding-right:27px}.answer-grid{grid-template-columns:56px 1fr;gap:20px}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark" aria-hidden="true"></span>知问</div>
+      <div class="top-title">企业知识 · 问答工作区</div>
+      <div class="top-actions"><button class="user-button" id="userMenu" aria-label="打开用户菜单"><span class="avatar">管</span><span>demo_admin</span></button></div>
+    </header>
+    <div class="shell">
+      <aside class="sidebar">
+        <p class="eyebrow">Knowledge scope</p>
+        <button class="space-button" id="spaceButton" aria-haspopup="true" aria-expanded="false">
+          <span class="space-glyph">知</span><span class="space-copy"><strong id="spaceName">JAVA-Redis</strong><span>当前知识范围</span></span><span class="chev">⌄</span>
+        </button>
+        <div class="space-menu" id="spaceMenu" role="menu">
+          <button class="menu-option" data-space="JAVA-Redis"><span>JAVA-Redis</span><small>当前</small></button>
+          <button class="menu-option" data-space="全部可访问知识"><span>全部可访问知识</span><small>按权限</small></button>
+        </div>
+        <button class="new-chat" id="newChat"><span>新建对话</span><span>＋</span></button>
+        <p class="eyebrow">Recent conversations</p>
+        <div class="history" aria-label="最近会话">
+          <button class="history-item active"><strong>解析失败后的处理</strong><span>刚刚 · JAVA-Redis</span></button>
+          <button class="history-item"><strong>如何定位答案的引用来源</strong><span>文档与引用</span></button>
+          <button class="history-item"><strong>上传后何时可以开始提问</strong><span>文档处理</span></button>
+        </div>
+        <div class="sidebar-foot">
+          <button class="side-link" id="documents"><span>文档</span><span>↗</span></button>
+          <button class="side-link" id="manage"><span>管理</span><span>仅管理员可见</span></button>
+        </div>
+      </aside>
+      <main class="main">
+        <div class="canvas">
+          <div class="context-line"><span>会话 / 解析失败后的处理</span><span class="scope" id="scopeLabel">仅在 JAVA-Redis 中查找</span></div>
+          <section class="question">
+            <div class="question-label">你的问题</div>
+            <h1>Java-Redis 项目中的文档解析失败后，系统会如何处理？</h1>
+          </section>
+          <section class="answer-grid">
+            <div class="answer-index">答</div>
+            <div class="answer-body">
+              <div class="answer-head"><strong>基于知识库回答</strong><span>已附来源</span></div>
+              <p>文档解析在后台异步执行。若处理失败，系统会将文档与任务标记为失败，并保留失败原因和任务日志，方便管理员定位问题。</p>
+              <ol>
+                <li>普通用户只会看到文件「需处理」，不会接触解析器、模型或向量配置。</li>
+                <li>知识库管理员可以进入文档或任务管理，查看可行动的失败说明，并发起单条或批量重试。</li>
+                <li>任务队列也具备失败重试能力；文件处理完成后，内容才进入可用于问答的状态。</li>
+              </ol>
+              <div class="source-section">
+                <div class="source-title"><strong>引用来源</strong><span>点击展开原文</span></div>
+                <button class="source-row" data-source="0"><span class="source-num">01</span><span class="source-main"><strong>README.md</strong><span>核心能力 · 异步文档任务：状态机、失败重试和任务日志</span></span><span class="source-arrow">↗</span></button>
+                <button class="source-row" data-source="1"><span class="source-num">02</span><span class="source-main"><strong>技术模块学习文档.md</strong><span>第 8 章 · 文档管理与解析模块 / 后台解析队列</span></span><span class="source-arrow">↗</span></button>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+    <div class="composer-wrap"><form class="composer" id="composer"><input id="askInput" aria-label="继续提问" placeholder="继续追问，或输入新的问题…"><button class="send" type="submit"><span>发送</span><span>→</span></button></form></div>
+  </div>
+
+  <div class="backdrop" id="backdrop"></div>
+  <aside class="drawer" id="sourceDrawer" aria-hidden="true">
+    <div class="drawer-head"><strong>来源原文</strong><button class="close" data-close aria-label="关闭">×</button></div>
+    <div class="drawer-body" id="sourceContent"></div>
+  </aside>
+  <aside class="drawer" id="manageDrawer" aria-hidden="true">
+    <div class="drawer-head"><strong id="manageTitle">知识库管理</strong><button class="close" data-close aria-label="关闭">×</button></div>
+    <div class="drawer-body">
+      <div id="adminView">
+        <div class="drawer-kicker">CONTENT ADMINISTRATION</div>
+        <div class="notice">这里是内容管理员工作区。普通问答界面不会展示任务日志、索引配置或基础设施状态。</div>
+        <div class="admin-list">
+          <div class="admin-item"><div><strong>文档处理</strong><p>上传资料、查看「可用 / 处理中 / 需处理」，并对失败文件发起重试。</p></div><span class="status">进入</span></div>
+          <div class="admin-item"><div><strong>成员与权限</strong><p>管理知识库协作者与访问范围。</p></div><span class="status">进入</span></div>
+          <div class="admin-item"><div><strong>知识库设置</strong><p>名称、说明、导入与导出。</p></div><span class="status">进入</span></div>
+        </div>
+        <div class="advanced-entry"><button id="advanced"><span><strong>高级诊断</strong><small>模型、索引、缓存、组件健康与原始日志</small></span><span>→</span></button></div>
+      </div>
+      <div id="diagnosticView" hidden>
+        <div class="drawer-kicker">SYSTEM ADMIN · SECONDARY ACCESS</div>
+        <div class="diag-gate">
+          <h3>仅供系统管理员排障</h3>
+          <p>这里可能包含服务端点、运行配置与原始日志。敏感字段始终遮罩，且不会回流到普通用户的问答页面。</p>
+          <button class="confirm" id="confirmDiag">我理解，查看诊断摘要</button>
+          <div class="diag-summary" id="diagSummary">
+            <div class="masked"><span>模型服务</span><span class="mask">配置详情 ••••••••</span></div>
+            <div class="masked"><span>向量存储</span><span class="mask">连接信息 ••••••••</span></div>
+            <div class="masked"><span>缓存与队列</span><span class="mask">运行信息 ••••••••</span></div>
+            <div class="masked"><span>原始日志</span><span class="mask">需要单独授权后读取</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const $ = (selector, scope = document) => scope.querySelector(selector);
+    const $$ = (selector, scope = document) => [...scope.querySelectorAll(selector)];
+    const backdrop = $('#backdrop');
+    const drawers = $$('.drawer');
+    const toast = $('#toast');
+    let toastTimer;
+    const sources = [
+      {name:'README.md', location:'核心能力 · 异步文档任务', quote:'PDF、DOC、DOCX、Markdown、TXT 异步解析，包含进度轮询、状态机、失败重试和任务日志。', updated:'仓库文档'},
+      {name:'技术模块学习文档.md', location:'第 8 章 · 文档管理与解析模块', quote:'文件无法解析时，文档会进入失败状态；任务中心支持查看失败原因，并可手动重试任务。', updated:'仓库文档'}
+    ];
+    function showToast(message){ clearTimeout(toastTimer); toast.textContent = message; toast.classList.add('show'); toastTimer = setTimeout(()=>toast.classList.remove('show'),2200); }
+    function openDrawer(drawer){ drawers.forEach(d=>{d.classList.remove('open');d.setAttribute('aria-hidden','true')}); drawer.classList.add('open');drawer.setAttribute('aria-hidden','false');backdrop.classList.add('show'); }
+    function closeDrawers(){ drawers.forEach(d=>{d.classList.remove('open');d.setAttribute('aria-hidden','true')});backdrop.classList.remove('show'); }
+    $('#spaceButton').addEventListener('click',()=>{ const menu=$('#spaceMenu'); const open=menu.classList.toggle('open'); $('#spaceButton').setAttribute('aria-expanded',String(open)); });
+    $$('.menu-option').forEach(button=>button.addEventListener('click',()=>{ const name=button.dataset.space; $('#spaceName').textContent=name; $('#scopeLabel').textContent=name==='JAVA-Redis'?'仅在 JAVA-Redis 中查找':'在全部可访问知识中查找'; $('#spaceMenu').classList.remove('open'); $('#spaceButton').setAttribute('aria-expanded','false'); showToast('知识范围已切换为「'+name+'」'); }));
+    $$('.history-item').forEach(item=>item.addEventListener('click',()=>{ $$('.history-item').forEach(i=>i.classList.remove('active')); item.classList.add('active'); if(!item.textContent.includes('解析失败')) showToast('已切换会话 · 原型保留当前答案用于方向对比'); }));
+    $('#newChat').addEventListener('click',()=>{ $$('.history-item').forEach(i=>i.classList.remove('active')); $('#askInput').value=''; $('#askInput').focus(); showToast('新对话已准备好'); });
+    $$('.source-row').forEach(row=>row.addEventListener('click',()=>{ const s=sources[Number(row.dataset.source)]; $('#sourceContent').innerHTML='<div class="drawer-kicker">CITATION '+(Number(row.dataset.source)+1)+'</div><p class="source-quote">「'+s.quote+'」</p><div class="meta-row"><span>文档</span><strong>'+s.name+'</strong></div><div class="meta-row"><span>位置</span><span>'+s.location+'</span></div><div class="meta-row"><span>更新时间</span><span>'+s.updated+'</span></div><div class="notice" style="margin-top:25px">普通视图只提供可读定位与原文摘录，不显示 chunk ID、检索分数、模型名称或缓存信息。</div>'; openDrawer($('#sourceDrawer')); }));
+    $('#manage').addEventListener('click',()=>{ $('#adminView').hidden=false;$('#diagnosticView').hidden=true;$('#manageTitle').textContent='知识库管理';openDrawer($('#manageDrawer')); });
+    $('#documents').addEventListener('click',()=>{ showToast('文档入口：状态将使用「可用 / 处理中 / 需处理」'); });
+    $('#advanced').addEventListener('click',()=>{ $('#adminView').hidden=true;$('#diagnosticView').hidden=false;$('#manageTitle').textContent='高级诊断';$('#diagSummary').classList.remove('show'); });
+    $('#confirmDiag').addEventListener('click',()=>{$('#diagSummary').classList.add('show');$('#confirmDiag').textContent='诊断摘要已解锁（敏感字段仍遮罩）';});
+    $('#composer').addEventListener('submit',event=>{event.preventDefault();const value=$('#askInput').value.trim();showToast(value?'问题已加入发送队列（原型）':'请先输入问题');});
+    $('#userMenu').addEventListener('click',()=>showToast('当前身份：系统管理员 · 可进入管理区'));
+    backdrop.addEventListener('click',closeDrawers); $$('[data-close]').forEach(button=>button.addEventListener('click',closeDrawers));
+    document.addEventListener('keydown',event=>{if(event.key==='Escape'){closeDrawers();$('#spaceMenu').classList.remove('open');$('#spaceButton').setAttribute('aria-expanded','false');}});
+  </script>
+</body>
+</html>

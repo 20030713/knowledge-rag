@@ -6,6 +6,8 @@ import com.rag.knowledge.config.UploadProperties;
 import com.rag.knowledge.domain.entity.KnowledgeBase;
 import com.rag.knowledge.domain.entity.KnowledgeBaseMember;
 import com.rag.knowledge.domain.entity.User;
+import com.rag.knowledge.security.LoginUser;
+import com.rag.knowledge.security.UserContext;
 import com.rag.knowledge.repository.DocumentChunkMapper;
 import com.rag.knowledge.repository.DocumentMapper;
 import com.rag.knowledge.repository.KnowledgeBaseMapper;
@@ -16,6 +18,8 @@ import com.rag.knowledge.service.KnowledgeBasePermissionService;
 import com.rag.knowledge.service.RagAnswerCacheService;
 import com.rag.knowledge.vector.VectorStoreService;
 import java.util.List;
+import java.time.LocalDateTime;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -23,6 +27,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -40,6 +45,47 @@ class KnowledgeBaseServiceImplMemberTests {
     @Mock private RagAnswerCacheService ragAnswerCacheService;
     @Mock private VectorStoreService vectorStoreService;
     @Mock private KnowledgeBasePermissionService permissionService;
+
+    @AfterEach
+    void clearUserContext() {
+        UserContext.clear();
+    }
+
+    @Test
+    void listsKnowledgeBasesSharedWithCurrentUser() {
+        LocalDateTime now = LocalDateTime.now();
+        KnowledgeBase shared = new KnowledgeBase();
+        shared.setId(10L);
+        shared.setUserId(1L);
+        shared.setName("Shared knowledge base");
+        shared.setVisibility("PRIVATE");
+        shared.setCreatedAt(now);
+        shared.setUpdatedAt(now);
+
+        KnowledgeBaseMember membership = new KnowledgeBaseMember();
+        membership.setKbId(10L);
+        membership.setUserId(2L);
+        membership.setRole("EDITOR");
+
+        User owner = new User();
+        owner.setId(1L);
+        owner.setUsername("owner");
+
+        UserContext.set(new LoginUser(2L, "member", "USER"));
+        when(knowledgeBaseMapper.selectList(any(Wrapper.class))).thenReturn(List.of());
+        when(memberMapper.selectList(any(Wrapper.class))).thenReturn(List.of(membership));
+        when(knowledgeBaseMapper.selectBatchIds(anyCollection())).thenReturn(List.of(shared));
+        when(userMapper.selectById(1L)).thenReturn(owner);
+        when(memberMapper.selectCount(any(Wrapper.class))).thenReturn(1L);
+
+        var result = service().listMine();
+
+        assertThat(result).hasSize(1);
+        assertThat(result.getFirst().id()).isEqualTo(10L);
+        assertThat(result.getFirst().accessRole()).isEqualTo("EDITOR");
+        assertThat(result.getFirst().owned()).isFalse();
+        assertThat(result.getFirst().ownerUsername()).isEqualTo("owner");
+    }
 
     @Test
     void searchesOnlyEligibleMemberCandidates() {

@@ -19,6 +19,12 @@ public class KnowledgeBase {
 
     private String visibility;
 
+    private Integer chunkSize;
+
+    private Integer chunkOverlap;
+
+    private Integer minBreakSize;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
@@ -61,6 +67,30 @@ public class KnowledgeBase {
 
     public void setVisibility(String visibility) {
         this.visibility = visibility;
+    }
+
+    public Integer getChunkSize() {
+        return chunkSize;
+    }
+
+    public void setChunkSize(Integer chunkSize) {
+        this.chunkSize = chunkSize;
+    }
+
+    public Integer getChunkOverlap() {
+        return chunkOverlap;
+    }
+
+    public void setChunkOverlap(Integer chunkOverlap) {
+        this.chunkOverlap = chunkOverlap;
+    }
+
+    public Integer getMinBreakSize() {
+        return minBreakSize;
+    }
+
+    public void setMinBreakSize(Integer minBreakSize) {
+        this.minBreakSize = minBreakSize;
     }
 
     public LocalDateTime getCreatedAt() {

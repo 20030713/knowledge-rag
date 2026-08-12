@@ -1,0 +1,147 @@
+<!doctype html>
+<!--
+  ASSUMPTIONS / REASONING
+  - 这是第四个独立方向，不修改前三版，也不是生产实现。
+  - 用户明确要求跳出上一轮 Huashu 风格约束，因此本版主动采用高饱和钴蓝、杏橙、暖黄与暖白，并允许更明显的圆角和色块。
+  - 布局参考成熟企业 AI/RAG 产品的任务结构，但不复制任何品牌：全局轨道负责产品域，会话侧栏负责上下文，中央画布负责答案，右侧证据舱负责来源。
+  - 普通用户默认看不到模型、API、向量、Redis、缓存、限流、端点和原始日志；管理员控制台经过二次确认才揭示遮罩后的诊断摘要。
+  - 示例内容来自本仓库 README、核心技术模块说明与技术模块学习文档；不编造业务指标。
+-->
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>知问 · 钴蓝指挥台方向</title>
+  <style>
+    :root{
+      --cobalt:#2638e8;--cobalt-2:#1829bd;--orange:#ff6b3d;--yellow:#ffd45c;
+      --ink:#151a38;--ink-2:#303757;--paper:#fff9f1;--cloud:#f0f2ff;--white:#fff;
+      --line:rgba(21,26,56,.13);--muted:#747993;--mint:#b9f5d0;--danger:#e64c45;
+      --shadow:0 18px 50px rgba(21,26,56,.13);--soft-shadow:0 8px 24px rgba(21,26,56,.08)
+    }
+    *{box-sizing:border-box}html,body{margin:0;min-width:320px;min-height:100%;background:var(--paper);color:var(--ink);font-family:"Microsoft YaHei UI","Noto Sans CJK SC",sans-serif;text-rendering:optimizeLegibility}body{overflow:hidden}
+    button,input,textarea{font:inherit}button{cursor:pointer;color:inherit}button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid rgba(255,107,61,.45);outline-offset:2px}
+    .icon{width:20px;height:20px;display:block;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.app{height:100vh;display:grid;grid-template-columns:68px 272px minmax(0,1fr);background:var(--paper)}
+    .rail{background:var(--cobalt);color:#fff;display:flex;flex-direction:column;align-items:center;padding:14px 0;z-index:20}.logo{width:42px;height:42px;border:0;border-radius:14px;background:var(--yellow);color:var(--ink);font:900 20px/1 Georgia,serif;display:grid;place-items:center;box-shadow:0 5px 0 var(--orange)}
+    .rail-nav{margin-top:38px;display:grid;gap:10px}.rail-btn{width:44px;height:44px;border:0;border-radius:14px;background:transparent;color:rgba(255,255,255,.72);display:grid;place-items:center;position:relative;transition:.18s ease}.rail-btn:hover,.rail-btn.active{background:#fff;color:var(--cobalt);transform:translateY(-1px)}.rail-btn.active:before{content:"";position:absolute;left:-12px;width:4px;height:22px;border-radius:0 4px 4px 0;background:var(--yellow)}.rail-spacer{flex:1}.avatar-mini{width:38px;height:38px;border:2px solid rgba(255,255,255,.55);border-radius:50%;background:#111735;color:#fff;font-weight:900}
+    .context{background:var(--cloud);border-right:1px solid rgba(38,56,232,.13);display:flex;flex-direction:column;min-width:0;z-index:10}.context-head{padding:23px 18px 17px}.context-head small{display:block;color:var(--cobalt);font:800 10px/1.2 Consolas,monospace;letter-spacing:.13em;text-transform:uppercase}.context-head h1{font-size:18px;margin:7px 0 0;letter-spacing:-.02em}.scope-wrap{padding:0 12px;position:relative}.scope-trigger{width:100%;min-height:68px;text-align:left;border:0;border-radius:18px;background:#fff;padding:13px 14px;display:grid;grid-template-columns:36px 1fr auto;align-items:center;gap:10px;box-shadow:var(--soft-shadow)}.scope-mark{width:36px;height:36px;border-radius:12px;background:var(--cobalt);color:#fff;display:grid;place-items:center;font:800 13px/1 Consolas,monospace}.scope-trigger strong{display:block;font-size:13px}.scope-trigger span{display:block;color:var(--muted);font-size:11px;margin-top:3px}.chev{font-size:16px;color:var(--cobalt)}.scope-menu{position:absolute;left:12px;right:12px;top:74px;background:#fff;border:1px solid rgba(38,56,232,.16);border-radius:17px;box-shadow:var(--shadow);padding:6px;z-index:30}.scope-menu[hidden]{display:none}.scope-option{width:100%;border:0;background:transparent;border-radius:12px;text-align:left;padding:11px 12px}.scope-option:hover{background:var(--cloud)}.scope-option strong{display:block;font-size:12px}.scope-option span{font-size:11px;color:var(--muted)}
+    .new-chat{margin:16px 12px 6px;min-height:46px;border:0;border-radius:15px;background:var(--orange);color:#fff;font-weight:900;box-shadow:0 5px 0 #ce3f1e;display:flex;align-items:center;justify-content:center;gap:8px}.new-chat:active{transform:translateY(4px);box-shadow:0 1px 0 #ce3f1e}.new-chat .icon{width:18px;height:18px}.section-label{padding:19px 20px 8px;color:#7b80a0;font:800 10px/1 Consolas,monospace;letter-spacing:.12em}.sessions{padding:0 9px;display:grid;gap:4px;overflow:auto}.session{width:100%;border:0;border-radius:15px;background:transparent;text-align:left;padding:11px 12px;display:grid;grid-template-columns:6px 1fr;gap:10px}.session-dot{width:6px;height:6px;margin-top:6px;border-radius:50%;background:#b6bdd8}.session strong{display:block;font-size:12px;line-height:1.45}.session span{display:block;color:var(--muted);font-size:10px;margin-top:4px}.session:hover{background:rgba(255,255,255,.65)}.session.active{background:#fff;box-shadow:var(--soft-shadow)}.session.active .session-dot{background:var(--orange);box-shadow:0 0 0 4px rgba(255,107,61,.13)}.context-foot{margin-top:auto;padding:13px}.manage-entry{width:100%;min-height:50px;border:1px solid rgba(38,56,232,.15);border-radius:15px;background:rgba(255,255,255,.55);display:flex;align-items:center;gap:10px;padding:0 13px;text-align:left}.manage-entry:hover{background:#fff}.manage-entry .icon{color:var(--cobalt)}.manage-entry strong{display:block;font-size:12px}.manage-entry span{display:block;font-size:10px;color:var(--muted);margin-top:2px}
+    .workspace{min-width:0;display:flex;flex-direction:column;position:relative;background:var(--paper);overflow:hidden}.topbar{height:64px;flex:0 0 64px;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 22px;gap:14px;background:rgba(255,249,241,.94);backdrop-filter:blur(14px);z-index:8}.top-title{display:flex;align-items:center;gap:9px}.top-title b{font-size:13px}.security-pill{display:flex;align-items:center;gap:6px;color:#3e6d56;font-size:11px;background:#e2f7e9;border-radius:999px;padding:6px 9px}.security-pill:before{content:"";width:6px;height:6px;border-radius:50%;background:#28a965}.top-spacer{flex:1}.top-action{min-height:38px;border:0;background:transparent;border-radius:12px;padding:0 12px;display:flex;align-items:center;gap:7px;font-size:12px}.top-action:hover{background:#fff}.top-action.primary{background:var(--ink);color:#fff}.top-action .icon{width:17px;height:17px}
+    .stage{min-height:0;flex:1;display:grid;grid-template-columns:minmax(0,1fr) 330px;overflow:hidden}.conversation{min-width:0;overflow:auto;padding:34px clamp(24px,4vw,58px) 132px;scrollbar-width:thin;scrollbar-color:rgba(38,56,232,.25) transparent}.answer-wrap{max-width:820px;margin:0 auto}.crumb{display:flex;align-items:center;gap:8px;color:var(--cobalt);font:800 10px/1 Consolas,monospace;letter-spacing:.1em}.crumb:before{content:"";width:20px;height:3px;background:var(--orange);border-radius:3px}.question{font-family:"Bricolage Grotesque","Microsoft YaHei UI",sans-serif;font-size:clamp(28px,3.1vw,46px);line-height:1.22;letter-spacing:-.045em;margin:18px 0 22px;text-wrap:balance}.provenance{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:11px;margin-bottom:28px}.provenance b{color:#286e4a;background:var(--mint);padding:6px 9px;border-radius:999px}.answer-lead{font-size:16px;line-height:1.95;margin:0 0 18px;color:var(--ink-2);text-wrap:pretty}.answer-lead strong{color:var(--ink)}.cite{border:0;background:var(--yellow);color:var(--ink);font:900 10px/1 Consolas,monospace;border-radius:7px;padding:5px 7px;vertical-align:2px;margin-left:4px}.cite:hover{background:var(--orange);color:#fff}.answer-grid{margin:26px 0 24px;border-top:1px solid var(--line)}.step{display:grid;grid-template-columns:50px minmax(0,1fr) auto;gap:15px;align-items:center;border-bottom:1px solid var(--line);padding:17px 0}.step-no{width:38px;height:38px;border-radius:13px;display:grid;place-items:center;font:900 13px/1 Consolas,monospace}.step:nth-child(1) .step-no{background:var(--yellow)}.step:nth-child(2) .step-no{background:var(--mint)}.step:nth-child(3) .step-no{background:#dde1ff;color:var(--cobalt)}.step strong{display:block;font-size:13px}.step p{margin:4px 0 0;color:var(--muted);font-size:12px;line-height:1.55}.business-state{font-size:10px;font-weight:800;border-radius:999px;background:#fff;border:1px solid var(--line);padding:6px 9px;white-space:nowrap}.plain-note{display:flex;gap:12px;background:#eeeaff;border-radius:18px;padding:15px 17px;color:#41496e;font-size:12px;line-height:1.65}.plain-note b{color:var(--cobalt);white-space:nowrap}
+    .evidence{background:var(--ink);color:#fff;min-width:0;display:flex;flex-direction:column;transition:width .2s ease,transform .2s ease}.evidence-head{padding:26px 22px 18px;border-bottom:1px solid rgba(255,255,255,.12)}.evidence-head small{color:var(--yellow);font:800 10px/1 Consolas,monospace;letter-spacing:.12em}.evidence-head h2{margin:8px 0 6px;font-size:22px}.evidence-head p{margin:0;color:#9ca4c4;font-size:11px;line-height:1.6}.source-list{padding:8px 12px;display:grid;gap:8px;overflow:auto}.source-card{border:1px solid rgba(255,255,255,.13);border-radius:17px;background:rgba(255,255,255,.05);color:#fff;text-align:left;padding:15px;transition:.18s ease}.source-card:hover{background:rgba(255,255,255,.1);border-color:rgba(255,212,92,.45);transform:translateY(-1px)}.source-top{display:flex;align-items:center;gap:9px}.source-index{width:28px;height:28px;border-radius:9px;background:var(--yellow);color:var(--ink);display:grid;place-items:center;font:900 11px/1 Consolas,monospace}.source-card strong{font-size:12px}.source-card p{margin:10px 0;color:#c7cbe0;font-size:11px;line-height:1.65}.source-card footer{display:flex;justify-content:space-between;color:#878eae;font-size:9px}.evidence-foot{margin-top:auto;padding:16px 20px;color:#8e95b5;font-size:10px;line-height:1.6;border-top:1px solid rgba(255,255,255,.1)}
+    .composer-wrap{position:absolute;left:0;right:330px;bottom:0;padding:18px clamp(24px,4vw,58px) 20px;background:linear-gradient(to top,var(--paper) 72%,rgba(255,249,241,0));z-index:7}.composer{max-width:820px;margin:0 auto;min-height:70px;border:2px solid var(--ink);border-radius:22px;background:#fff;display:grid;grid-template-columns:1fr auto;align-items:end;padding:10px 10px 10px 18px;box-shadow:0 8px 0 rgba(38,56,232,.11),var(--soft-shadow)}.composer textarea{border:0;outline:0;resize:none;min-height:45px;max-height:100px;padding:10px 0;color:var(--ink);line-height:1.5;background:transparent}.composer textarea::placeholder{color:#9da1b7}.send{width:48px;height:48px;border:0;border-radius:16px;background:var(--orange);color:#fff;display:grid;place-items:center;box-shadow:0 4px 0 #ce3f1e}.send:active{transform:translateY(3px);box-shadow:0 1px 0 #ce3f1e}.send .icon{width:20px;height:20px}.composer-hint{max-width:820px;margin:9px auto 0;padding-left:7px;color:#8d91a7;font-size:9px}
+    .scrim{position:fixed;inset:0;background:rgba(10,13,35,.45);backdrop-filter:blur(4px);opacity:0;pointer-events:none;transition:.2s;z-index:60}.scrim.open{opacity:1;pointer-events:auto}.drawer{position:fixed;right:0;top:0;bottom:0;width:min(470px,94vw);background:var(--paper);box-shadow:-22px 0 70px rgba(11,14,40,.24);transform:translateX(104%);transition:.26s cubic-bezier(.2,.8,.2,1);z-index:70;display:flex;flex-direction:column}.drawer.open{transform:none}.drawer-head{padding:22px 24px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px}.drawer-head div{flex:1}.drawer-head small{color:var(--cobalt);font:800 10px/1 Consolas,monospace;letter-spacing:.1em}.drawer-head h2{margin:7px 0 0;font-size:21px}.close{width:38px;height:38px;border:0;border-radius:12px;background:#fff;font-size:20px}.drawer-body{padding:24px;overflow:auto}.quote{font-family:Georgia,"Songti SC",serif;font-size:21px;line-height:1.7;margin:0 0 22px}.meta{display:grid;grid-template-columns:90px 1fr;gap:11px;padding:12px 0;border-bottom:1px solid var(--line);font-size:12px}.meta span:first-child{color:var(--muted)}.callout{border-radius:17px;background:#eeeaff;padding:15px;color:#4b5278;font-size:11px;line-height:1.65;margin-top:18px}.manage-tabs{display:flex;gap:8px;margin-bottom:18px}.manage-tab{border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 12px;font-size:11px}.manage-tab.active{background:var(--cobalt);color:#fff;border-color:var(--cobalt)}.doc-row{padding:15px 0;border-bottom:1px solid var(--line);display:grid;grid-template-columns:1fr auto;gap:12px}.doc-row strong{font-size:12px}.doc-row span{display:block;color:var(--muted);font-size:10px;margin-top:5px}.status{align-self:center;border-radius:999px;padding:6px 9px;font-size:9px;font-weight:900}.ok{background:var(--mint);color:#215d3e}.review{background:#ffe0d7;color:#94361f}.diagnostic-entry{margin-top:24px;border-radius:19px;background:var(--ink);color:#fff;padding:18px}.diagnostic-entry small{color:#9da4c6}.diagnostic-entry p{font-size:11px;line-height:1.6;color:#c6cae0}.diagnostic-entry button{border:0;border-radius:12px;background:var(--yellow);padding:10px 12px;font-weight:900;font-size:11px}.gate{background:#fff1d2;border:1px solid #efc96c;border-radius:16px;padding:15px;font-size:11px;line-height:1.65}.diag-list{margin-top:16px;display:grid;gap:8px}.diag-row{background:#fff;border:1px solid var(--line);border-radius:13px;padding:12px}.diag-row span{display:block;color:var(--muted);font-size:9px}.diag-row strong{display:block;margin-top:5px;font:700 11px/1.4 Consolas,monospace;filter:blur(4px);user-select:none}.diag-list.revealed .diag-row strong{filter:none;user-select:text}.confirm{margin-top:14px;width:100%;min-height:44px;border:0;border-radius:13px;background:var(--orange);color:#fff;font-weight:900}.palette-strip{display:grid;grid-template-columns:2fr 1fr 1fr 2fr;height:7px}.palette-strip i:nth-child(1){background:var(--cobalt)}.palette-strip i:nth-child(2){background:var(--orange)}.palette-strip i:nth-child(3){background:var(--yellow)}.palette-strip i:nth-child(4){background:var(--ink)}
+    .toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);background:var(--ink);color:#fff;border-radius:14px;padding:11px 15px;font-size:11px;opacity:0;pointer-events:none;transition:.2s;z-index:100;box-shadow:var(--shadow)}.toast.show{opacity:1;transform:translate(-50%,0)}
+    .evidence-hidden .stage{grid-template-columns:minmax(0,1fr) 0}.evidence-hidden .evidence{transform:translateX(100%);overflow:hidden}.evidence-hidden .composer-wrap{right:0}
+    @media(max-width:1100px){.app{grid-template-columns:64px 236px minmax(0,1fr)}.stage{grid-template-columns:minmax(0,1fr)}.evidence{position:absolute;right:0;top:64px;bottom:0;width:330px;z-index:12;box-shadow:-16px 0 44px rgba(21,26,56,.2)}.composer-wrap{right:0}.conversation{padding-left:28px;padding-right:28px}.evidence-hidden .evidence{transform:translateX(105%)}}
+    @media(max-width:760px){body{overflow:auto}.app{height:auto;min-height:100vh;grid-template-columns:58px minmax(0,1fr)}.context{display:none}.workspace{min-height:100vh}.topbar{padding:0 10px}.top-title b{display:none}.conversation{padding:26px 18px 130px}.question{font-size:30px}.step{grid-template-columns:42px 1fr}.business-state{display:none}.composer-wrap{left:58px;padding:14px}.composer{border-radius:18px}.top-action span{display:none}.evidence{top:64px;width:min(330px,calc(100vw - 58px))}}
+  </style>
+</head>
+<body>
+  <svg width="0" height="0" aria-hidden="true" style="position:absolute"><defs>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5a3 3 0 0 1 3-3h12v18H7a3 3 0 0 0-3 3zM4 5v18"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 18h2M10 18h10M14 3v6M7 15v6"/></symbol>
+    <symbol id="i-sources" viewBox="0 0 24 24"><path d="M4 4h16v5H4zM4 13h16v7H4z"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="m3 4 18 8-18 8 4-8zM7 12h14"/></symbol>
+  </defs></svg>
+  <div class="app" id="app">
+    <aside class="rail" aria-label="全局导航">
+      <button class="logo" title="知问">知</button>
+      <nav class="rail-nav">
+        <button class="rail-btn active" data-domain="问答" title="问答"><svg class="icon"><use href="#i-chat"/></svg></button>
+        <button class="rail-btn" data-domain="全局搜索" title="搜索"><svg class="icon"><use href="#i-search"/></svg></button>
+        <button class="rail-btn" data-domain="知识内容" title="知识内容"><svg class="icon"><use href="#i-book"/></svg></button>
+        <button class="rail-btn" data-domain="应用" title="应用"><svg class="icon"><use href="#i-grid"/></svg></button>
+      </nav>
+      <div class="rail-spacer"></div><button class="avatar-mini" id="avatarMini" title="demo_admin">D</button>
+    </aside>
+
+    <aside class="context">
+      <header class="context-head"><small>Enterprise Knowledge</small><h1>你的知识工作区</h1></header>
+      <div class="scope-wrap">
+        <button class="scope-trigger" id="scopeTrigger" aria-expanded="false"><span class="scope-mark">JR</span><span><strong id="scopeName">JAVA-Redis</strong><span id="scopeDesc">项目文档与技术说明</span></span><span class="chev">⌄</span></button>
+        <div class="scope-menu" id="scopeMenu" hidden>
+          <button class="scope-option" data-name="JAVA-Redis" data-desc="项目文档与技术说明"><strong>JAVA-Redis</strong><span>项目文档与技术说明</span></button>
+          <button class="scope-option" data-name="工程文档" data-desc="部署、接口与运维说明"><strong>工程文档</strong><span>部署、接口与运维说明</span></button>
+          <button class="scope-option" data-name="全部可访问知识" data-desc="跨空间检索，遵循你的权限"><strong>全部可访问知识</strong><span>跨空间检索，遵循你的权限</span></button>
+        </div>
+      </div>
+      <button class="new-chat" id="newChat"><svg class="icon"><use href="#i-plus"/></svg>开始新对话</button>
+      <div class="section-label">RECENT CONVERSATIONS</div>
+      <div class="sessions">
+        <button class="session active" data-question="Java-Redis 项目中的文档解析失败后，系统会如何处理？"><i class="session-dot"></i><span><strong>文档解析失败后怎么处理</strong><span>刚刚 · JAVA-Redis</span></span></button>
+        <button class="session" data-question="Redis 模块在系统中承担哪些职责？"><i class="session-dot"></i><span><strong>Redis 模块承担哪些职责</strong><span>昨天 · JAVA-Redis</span></span></button>
+        <button class="session" data-question="生产环境应该开放哪些端口？"><i class="session-dot"></i><span><strong>生产环境开放哪些端口</strong><span>周一 · 工程文档</span></span></button>
+      </div>
+      <footer class="context-foot"><button class="manage-entry" id="manageEntry"><svg class="icon"><use href="#i-sliders"/></svg><span><strong>知识空间管理</strong><span>文档、成员与业务状态</span></span></button></footer>
+    </aside>
+
+    <main class="workspace">
+      <header class="topbar"><div class="top-title"><b>知问 AI</b><span class="security-pill">仅检索你有权限访问的内容</span></div><div class="top-spacer"></div><button class="top-action" id="toggleEvidence"><svg class="icon"><use href="#i-sources"/></svg><span>证据舱</span></button><button class="top-action primary" id="topManage"><svg class="icon"><use href="#i-sliders"/></svg><span>管理</span></button></header>
+      <div class="stage">
+        <section class="conversation" id="conversation"><div class="answer-wrap">
+          <div class="crumb">ANSWER CANVAS · JAVA-REDIS</div>
+          <h2 class="question" id="questionTitle">Java-Redis 项目中的文档解析失败后，系统会如何处理？</h2>
+          <div class="provenance"><b>回答已完成</b><span>基于 2 份已授权文档综合</span></div>
+          <p class="answer-lead"><strong>系统不会把解析失败的文档继续用于问答。</strong> 文档解析通过异步任务执行；失败后会保留失败状态、原因和任务日志，方便有权限的管理员定位问题。<button class="cite" data-source="1">01</button></p>
+          <p class="answer-lead">任务队列支持按规则重试；达到限制后，界面只向普通员工呈现「需处理」，避免反复提交无效任务。内容管理员可以在文档或任务管理中重新处理。<button class="cite" data-source="2">02</button></p>
+          <div class="answer-grid">
+            <article class="step"><span class="step-no">01</span><div><strong>先隔离失败内容</strong><p>失败文档不会进入可用于问答的内容范围。</p></div><span class="business-state">需处理</span></article>
+            <article class="step"><span class="step-no">02</span><div><strong>保留可行动原因</strong><p>内容管理员看到失败原因并可重新发起处理。</p></div><span class="business-state">管理员可见</span></article>
+            <article class="step"><span class="step-no">03</span><div><strong>必要时升级排障</strong><p>只有系统管理员才能进入高级诊断查看内部运行信息。</p></div><span class="business-state">二级入口</span></article>
+          </div>
+          <div class="plain-note"><b>信息边界</b><span>普通视图不展示模型名称、接口地址、向量与关键词分数、缓存命中、限流值、组件名称或原始日志。</span></div>
+        </div></section>
+        <aside class="evidence" id="evidence"><header class="evidence-head"><small>TRACEABLE EVIDENCE</small><h2>证据舱</h2><p>显示可读来源与定位，不暴露内部检索实现。</p></header><div class="source-list">
+          <button class="source-card" data-source="1"><div class="source-top"><span class="source-index">01</span><strong>README.md</strong></div><p>异步文档任务包含进度轮询、状态机、失败重试与任务日志。</p><footer><span>核心能力</span><span>查看原文 →</span></footer></button>
+          <button class="source-card" data-source="2"><div class="source-top"><span class="source-index">02</span><strong>技术模块学习文档.md</strong></div><p>后台解析队列在失败后重试，达到上限后停止无效处理。</p><footer><span>第 8 章</span><span>查看原文 →</span></footer></button>
+        </div><footer class="evidence-foot">来源只显示文档、章节和摘录。内部切片标识与检索分数已隐藏。</footer></aside>
+      </div>
+      <div class="composer-wrap"><form class="composer" id="composer"><textarea id="questionInput" rows="1" placeholder="继续追问，或输入新的企业知识问题…"></textarea><button class="send" aria-label="发送"><svg class="icon"><use href="#i-send"/></svg></button></form><div class="composer-hint">Enter 发送 · Shift + Enter 换行 · 回答范围受你的访问权限约束</div></div>
+    </main>
+  </div>
+
+  <div class="scrim" id="scrim"></div>
+  <aside class="drawer" id="sourceDrawer" role="dialog" aria-modal="true" aria-hidden="true"><div class="palette-strip"><i></i><i></i><i></i><i></i></div><header class="drawer-head"><div><small>CITATION DETAIL</small><h2 id="sourceTitle">来源详情</h2></div><button class="close" data-close aria-label="关闭">×</button></header><div class="drawer-body" id="sourceBody"></div></aside>
+  <aside class="drawer" id="manageDrawer" role="dialog" aria-modal="true" aria-hidden="true"><div class="palette-strip"><i></i><i></i><i></i><i></i></div><header class="drawer-head"><div><small>KNOWLEDGE MANAGEMENT</small><h2 id="manageTitle">知识空间管理</h2></div><button class="close" data-close aria-label="关闭">×</button></header><div class="drawer-body" id="manageBody">
+    <div class="manage-tabs"><button class="manage-tab active">文档</button><button class="manage-tab">成员</button><button class="manage-tab">设置</button></div>
+    <div class="doc-row"><div><strong>Java后端实习面试QA_雅姿生活志.md</strong><span>内容已经可以用于问答</span></div><span class="status ok">可用</span></div>
+    <div class="doc-row"><div><strong>部署补充说明.md</strong><span>需要管理员检查后重新处理</span></div><span class="status review">需处理</span></div>
+    <section class="diagnostic-entry"><small>SYSTEM ADMIN ONLY</small><h3>高级诊断</h3><p>模型、索引、缓存、组件健康与原始日志集中在独立控制台，不进入普通知识工作区。</p><button id="openDiagnostics">进入系统控制台</button></section>
+  </div></aside>
+  <aside class="drawer" id="diagnosticDrawer" role="dialog" aria-modal="true" aria-hidden="true"><div class="palette-strip"><i></i><i></i><i></i><i></i></div><header class="drawer-head"><div><small>SYSTEM ADMIN · RESTRICTED</small><h2>系统控制台</h2></div><button class="close" data-close aria-label="关闭">×</button></header><div class="drawer-body"><div class="gate"><strong>受限信息提醒</strong><br>这里包含内部模型、服务端点、缓存与原始日志摘要。仅用于系统管理员排障，请勿截图或转发。</div><div class="diag-list" id="diagList"><div class="diag-row"><span>对话服务</span><strong>internal-chat / configured</strong></div><div class="diag-row"><span>向量服务</span><strong>private-vector / protected</strong></div><div class="diag-row"><span>缓存与任务队列</span><strong>internal-cache / protected</strong></div><div class="diag-row"><span>原始任务日志</span><strong>parse_job · failure summary · redacted</strong></div></div><button class="confirm" id="confirmDiagnostics">确认权限并显示诊断摘要</button></div></aside>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+    const app=$('#app'),scrim=$('#scrim'),toastEl=$('#toast'); let toastTimer;
+    const sources={
+      1:{title:'README.md',quote:'「异步文档任务：PDF、DOC、DOCX、Markdown、TXT 异步解析，包含进度轮询、状态机、失败重试和任务日志。」',location:'核心能力 · 异步文档任务',updated:'仓库当前文档'},
+      2:{title:'技术模块学习文档.md',quote:'「失败后任务重试，最多 3 次。」',location:'第 8 章 · 文档管理与解析',updated:'仓库当前文档'}
+    };
+    function toast(message){clearTimeout(toastTimer);toastEl.textContent=message;toastEl.classList.add('show');toastTimer=setTimeout(()=>toastEl.classList.remove('show'),1800)}
+    function closeDrawers(){ $$('.drawer.open').forEach(d=>{d.classList.remove('open');d.setAttribute('aria-hidden','true')});scrim.classList.remove('open') }
+    function openDrawer(drawer){closeDrawers();drawer.classList.add('open');drawer.setAttribute('aria-hidden','false');scrim.classList.add('open')}
+    function openSource(id){const s=sources[id];$('#sourceTitle').textContent=s.title;$('#sourceBody').innerHTML=`<p class="quote">${s.quote}</p><div class="meta"><span>文档</span><strong>${s.title}</strong></div><div class="meta"><span>定位</span><span>${s.location}</span></div><div class="meta"><span>更新时间</span><span>${s.updated}</span></div><div class="callout">为保护系统内部结构，普通来源视图不显示切片 ID、向量分数、关键词分数、模型名称、缓存命中或接口耗时。</div>`;openDrawer($('#sourceDrawer'))}
+    $('#scopeTrigger').addEventListener('click',()=>{const m=$('#scopeMenu'),open=m.hidden;m.hidden=!open;$('#scopeTrigger').setAttribute('aria-expanded',String(open))});
+    $$('.scope-option').forEach(b=>b.addEventListener('click',()=>{$('#scopeName').textContent=b.dataset.name;$('#scopeDesc').textContent=b.dataset.desc;$('#scopeMenu').hidden=true;$('#scopeTrigger').setAttribute('aria-expanded','false');toast('知识范围已切换为「'+b.dataset.name+'」')}));
+    $$('.rail-btn').forEach(b=>b.addEventListener('click',()=>{$$('.rail-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active');toast('已切换到「'+b.dataset.domain+'」· 本原型保留当前答案画布')}));
+    $$('.session').forEach(b=>b.addEventListener('click',()=>{$$('.session').forEach(x=>x.classList.remove('active'));b.classList.add('active');$('#questionTitle').textContent=b.dataset.question;toast('已打开会话')}));
+    $('#newChat').addEventListener('click',()=>{$$('.session').forEach(x=>x.classList.remove('active'));$('#questionTitle').textContent='开始一段新的企业知识对话';$('#questionInput').value='';$('#questionInput').focus();toast('新对话已准备好')});
+    document.addEventListener('click',e=>{const source=e.target.closest('[data-source]');if(source)openSource(source.dataset.source);if(!e.target.closest('.scope-wrap')){$('#scopeMenu').hidden=true;$('#scopeTrigger').setAttribute('aria-expanded','false')}});
+    $('#toggleEvidence').addEventListener('click',()=>{app.classList.toggle('evidence-hidden');toast(app.classList.contains('evidence-hidden')?'证据舱已收起':'证据舱已展开')});
+    function openManage(){openDrawer($('#manageDrawer'))} $('#manageEntry').addEventListener('click',openManage);$('#topManage').addEventListener('click',openManage);
+    $('#openDiagnostics').addEventListener('click',()=>{openDrawer($('#diagnosticDrawer'));$('#diagList').classList.remove('revealed');$('#confirmDiagnostics').textContent='确认权限并显示诊断摘要';$('#confirmDiagnostics').disabled=false});
+    $('#confirmDiagnostics').addEventListener('click',e=>{$('#diagList').classList.add('revealed');e.currentTarget.textContent='诊断摘要已显示';e.currentTarget.disabled=true;toast('系统管理员诊断摘要已解锁')});
+    $$('.manage-tab').forEach(t=>t.addEventListener('click',()=>{$$('.manage-tab').forEach(x=>x.classList.remove('active'));t.classList.add('active');toast('已切换到「'+t.textContent+'」· 原型展示文档内容')}));
+    $('#avatarMini').addEventListener('click',()=>toast('demo_admin · 系统管理员'));
+    $('#composer').addEventListener('submit',e=>{e.preventDefault();const q=$('#questionInput').value.trim();if(!q)return toast('请先输入问题');$('#questionTitle').textContent=q;$('#questionInput').value='';toast('问题已提交 · 原型保留当前示例答案')});
+    $('#questionInput').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();$('#composer').requestSubmit()}});
+    $$('[data-close]').forEach(b=>b.addEventListener('click',closeDrawers));scrim.addEventListener('click',closeDrawers);document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDrawers()});
+  </script>
+</body>
+</html>
