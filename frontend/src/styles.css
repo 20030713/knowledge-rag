@@ -4649,6 +4649,276 @@ textarea:focus {
   }
 }
 
+/* Full workspace reference system: conversation-first shell. */
+.workspace-shell.cobalt-shell {
+  grid-template-columns: 345px minmax(0, 1fr);
+  min-height: 100vh;
+  background: #f2f5f9;
+}
+
+.cobalt-shell .knowledge-context {
+  width: 345px;
+  padding: 24px 20px 22px;
+  border-right: 1px solid #e4e8ef;
+  background: #f4f6f9;
+}
+
+.cobalt-shell .context-brand {
+  min-height: 58px;
+  gap: 14px;
+  padding: 0 !important;
+}
+
+.cobalt-shell .context-brand-mark {
+  width: 55px;
+  height: 55px;
+  flex-basis: 55px;
+  border: 1px solid #dfe5ed;
+  border-radius: 14px;
+  color: #2368ed !important;
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(35, 51, 76, .06);
+}
+
+.cobalt-shell .context-brand strong { color: #252d3c; font-size: 20px; font-weight: 700; }
+.sidebar-collapse { width: 42px; height: 42px; display: grid; place-items: center; margin-left: auto; padding: 0; border: 0; color: #667085; background: transparent; }
+
+.cobalt-shell .new-conversation {
+  min-height: 48px;
+  margin: 28px 0 25px;
+  border: 1.5px solid #3b70ff;
+  border-radius: 9px;
+  color: #2563e9;
+  background: #fff;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.reference-sidebar-label { margin: 0 2px 10px; color: #4b5565; font-size: 14px; font-weight: 700; }
+.reference-sidebar-label.recent-label { margin-top: 34px; }
+
+.cobalt-shell .active-scope {
+  min-height: 47px;
+  grid-template-columns: 26px minmax(0, 1fr) 18px;
+  gap: 10px;
+  margin: 0;
+  padding: 0 14px;
+  border: 1px solid #dbe1e9;
+  border-radius: 9px;
+  background: #fff;
+}
+
+.cobalt-shell .active-scope:hover { border-color: #bcc9dd; background: #fff; }
+.cobalt-shell .scope-monogram { width: 26px; height: 26px; color: #1f9f72; background: transparent; }
+.cobalt-shell .scope-copy strong { color: #3f4858; font-size: 14px; font-weight: 550; }
+.cobalt-shell .active-scope > svg { transform: rotate(90deg); color: #7f8999; }
+
+.sidebar-conversation-list { display: grid; gap: 5px; }
+.sidebar-conversation-list button {
+  width: 100%;
+  min-height: 46px;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  color: #505b6c;
+  background: transparent;
+  text-align: left;
+}
+
+.sidebar-conversation-list button:hover,
+.sidebar-conversation-list button.active { color: #344054; background: #e7edf8; }
+.sidebar-conversation-list button svg { color: #7b8595; }
+.sidebar-conversation-list button span { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar-empty-history { padding: 11px 12px; color: #98a2b3; font-size: 12px; }
+
+.cobalt-shell .main-panel {
+  position: relative;
+  height: calc(100vh - 30px);
+  display: grid;
+  grid-template-rows: 74px minmax(0, 1fr);
+  margin: 15px 14px 15px 0;
+  overflow: hidden;
+  border: 1px solid #e2e7ee;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 10px 32px rgba(29, 41, 57, .055);
+}
+
+.cobalt-shell .topbar {
+  position: relative;
+  z-index: 20;
+  min-height: 74px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 34px;
+  border-bottom: 1px solid #e9edf2;
+  background: #fff;
+}
+
+.cobalt-shell .topbar-title { display: flex; align-items: center; gap: 22px; }
+.cobalt-shell .topbar-title > button { min-height: 40px; display: flex; align-items: center; gap: 10px; padding: 0; border: 0; color: #4d5665; background: transparent; font-size: 15px; }
+.cobalt-shell .status-pill { min-height: 38px; display: flex; align-items: center; gap: 9px; padding: 0 14px; border: 0; border-radius: 8px; color: #414b5b; background: #f2f4f7; font-size: 14px; font-weight: 500; }
+.cobalt-shell .status-pill i { width: 8px; height: 8px; border-radius: 50%; background: #21b878; box-shadow: 0 0 0 4px #e2f5ed; }
+.cobalt-shell .topbar-actions { display: flex; align-items: center; gap: 10px; }
+.cobalt-shell .topbar-actions > button { width: 42px; height: 42px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 8px; color: #566173; background: transparent; }
+.cobalt-shell .topbar-actions > button:hover { color: #2563eb; background: #f1f5fb; }
+
+.workspace-menu {
+  position: absolute;
+  z-index: 50;
+  top: 62px;
+  right: 26px;
+  width: 210px;
+  display: grid;
+  gap: 2px;
+  padding: 8px;
+  border: 1px solid #dfe4eb;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 18px 42px rgba(16, 24, 40, .16);
+}
+
+.workspace-menu button { min-height: 38px; display: flex; align-items: center; gap: 10px; padding: 0 11px; border: 0; border-radius: 7px; color: #465164; background: transparent; text-align: left; font-size: 12px; }
+.workspace-menu button:hover { color: #205fda; background: #f2f6fd; }
+
+.cobalt-shell .work-panel { min-height: 0; height: auto; overflow: hidden; background: #fff; }
+.cobalt-shell .work-panel > :not(.chat-stage),
+.cobalt-shell .work-panel > .document-console { height: 100%; padding: 24px 34px 32px; background: #fff; }
+
+.cobalt-shell .chat-stage,
+.cobalt-shell .chat-stage:has(.answer-layout) {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  align-content: stretch;
+  gap: 0;
+  padding: 0 38px 13px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.reference-conversation {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 25px 0 18px;
+  scrollbar-width: thin;
+  scrollbar-color: #d7dde7 transparent;
+}
+
+.user-message-row { display: flex; align-items: center; justify-content: flex-end; gap: 14px; margin: 0 0 22px; }
+.user-message-row > div { max-width: 520px; padding: 12px 20px; border-radius: 10px; color: #344054; background: #eef2ff; font-size: 15px; line-height: 1.55; }
+.user-message-row > span { width: 46px; height: 46px; display: grid; flex: 0 0 46px; place-items: center; border-radius: 50%; color: #fff; background: #2d64ed; font-size: 15px; font-weight: 750; }
+
+.assistant-message-row { width: min(1160px, 100%); display: grid; grid-template-columns: 58px minmax(0, 1fr); align-items: start; gap: 14px; }
+.assistant-avatar { width: 48px; height: 48px; display: grid; place-items: center; border: 1px solid #dbe7df; border-radius: 50%; color: #139565; background: #f0faf5; }
+.cobalt-shell .assistant-message-row .answer-card {
+  min-width: 0;
+  padding: 20px 20px 18px;
+  border: 1px solid #dfe4eb;
+  border-radius: 11px;
+  background: #fff;
+  box-shadow: none;
+}
+
+.cobalt-shell .answer-body { width: 100%; max-width: none; color: #424b5c; font-family: Aptos, "Microsoft YaHei UI", "PingFang SC", sans-serif; font-size: 15px; line-height: 1.82; }
+.cobalt-shell .answer-body p { margin: 0 0 14px; color: inherit; font-size: inherit; line-height: inherit; }
+.cobalt-shell .answer-body p:last-child { margin-bottom: 0; }
+.cobalt-shell .answer-body h4 { margin: 18px 0 8px; color: #30394a; font-size: 15px; }
+.cobalt-shell .answer-points { display: grid; gap: 13px; margin: 10px 0 14px; padding-left: 24px; }
+.cobalt-shell .answer-points li { padding-left: 5px; line-height: 1.8; }
+.streaming-badge { float: right; display: inline-flex; align-items: center; gap: 6px; color: #2b6edc; font-size: 11px; font-style: normal; }
+
+.inline-citations { display: grid; gap: 6px; margin-top: 14px; padding-top: 14px; border-top: 1px solid #e5e8ed; }
+.inline-citations > strong { margin-bottom: 2px; color: #4d5667; font-size: 12px; }
+.inline-citations button { min-height: 36px; display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 0 11px; border: 1px solid #e0e5ec; border-radius: 7px; color: #535e70; background: #fbfcfe; text-align: left; }
+.inline-citations button:hover,
+.inline-citations button.active { border-color: #c6d5f2; background: #f6f9ff; }
+.inline-citations button > span { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.inline-citations button i { width: 18px; height: 18px; display: inline-grid; place-items: center; margin-right: 8px; border-radius: 50%; color: #fff; background: #3c6de5; font-size: 10px; font-style: normal; }
+.inline-citations button em { color: #98a2b3; font-size: 10px; font-style: normal; }
+
+.chat-empty-state { align-self: center; justify-self: center; display: grid; justify-items: center; gap: 10px; color: #667085; text-align: center; }
+.chat-empty-state .assistant-avatar { width: 54px; height: 54px; }
+.chat-empty-state strong { color: #344054; font-size: 18px; }
+.chat-empty-state p { margin: 0; font-size: 13px; }
+
+.reference-suggestions { width: 100%; display: grid; gap: 8px; padding: 4px 0 14px; }
+.reference-suggestions > strong { color: #5a6475; font-size: 13px; font-weight: 500; }
+.reference-suggestions > div { display: flex; gap: 10px; overflow-x: auto; }
+.reference-suggestions button { min-height: 38px; flex: 1 0 auto; padding: 0 17px; border: 1px solid #e0e5ec; border-radius: 999px; color: #4f596a; background: #fff; font-size: 12px; white-space: nowrap; }
+.reference-suggestions button:hover { color: #255fcf; border-color: #bfd0f3; background: #fafcff; }
+
+.reference-composer {
+  position: relative;
+  min-height: 106px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 52px;
+  grid-template-rows: minmax(52px, 1fr) 34px;
+  padding: 8px 10px 8px 16px;
+  border: 1px solid #d9e0e9;
+  border-radius: 11px;
+  background: #fff;
+  box-shadow: 0 5px 18px rgba(31, 42, 61, .04);
+}
+
+.reference-composer textarea { grid-column: 1 / -1; width: 100%; min-height: 50px; resize: none; padding: 7px 0; border: 0; outline: 0; color: #344054; background: transparent; font-size: 14px; line-height: 1.6; }
+.reference-composer textarea::placeholder { color: #a0a8b5; }
+.composer-tools { display: flex; align-items: center; gap: 10px; }
+.composer-tools > button,
+.composer-tools label { width: 34px; height: 34px; display: grid; place-items: center; padding: 0; border: 0; color: #667085; background: transparent; cursor: pointer; }
+.composer-tools label { position: relative; }
+.composer-tools select { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.composer-send { grid-column: 2; grid-row: 1 / -1; align-self: end; width: 46px; height: 46px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 10px; color: #fff; background: #2d64ed; box-shadow: 0 5px 12px rgba(45, 100, 237, .2); }
+.composer-send:disabled { color: #bdc9e9; background: #e6ecfb; box-shadow: none; }
+.composer-debug { position: absolute; right: 62px; bottom: 10px; width: 32px; height: 32px; display: grid; place-items: center; padding: 0; border: 0; color: #8a94a6; background: transparent; }
+.cobalt-shell .chat-stage > .inline-error { position: absolute; z-index: 10; top: 12px; left: 38px; right: 38px; }
+.cobalt-shell .chat-stage > .debug-panel { position: absolute; z-index: 40; right: 34px; bottom: 132px; width: min(620px, calc(100% - 68px)); max-height: 50%; overflow-y: auto; }
+
+/* Every secondary page shares the same restrained white workspace. */
+.workspace-page-head,
+.document-console-head,
+.monitor-console-head { min-height: 56px; padding-bottom: 15px; border-bottom-color: #e8ecf1; }
+.workspace-page-head h2,
+.document-console-head h2,
+.monitor-console-head h2 { color: #2c3544; font-size: 23px; font-weight: 700; }
+.task-center-panel,
+.task-center-logs,
+.strategy-panel,
+.strategy-disclosures > details,
+.monitor-disclosure,
+.monitor-summary,
+.admin-panel,
+.admin-stage .stat-card,
+.document-summary,
+.document-browser-panel,
+.document-search-disclosure { border-color: #e0e5ec; border-radius: 10px; box-shadow: none; }
+
+@media (max-width: 1100px) {
+  .workspace-shell.cobalt-shell { grid-template-columns: 270px minmax(0, 1fr); }
+  .cobalt-shell .knowledge-context { width: 270px; padding-inline: 16px; }
+  .cobalt-shell .topbar { padding-inline: 20px; }
+  .cobalt-shell .status-pill { display: none; }
+  .cobalt-shell .chat-stage { padding-inline: 22px; }
+}
+
+/* Reference-page typography lock. */
+.cobalt-shell .assistant-message-row .answer-body {
+  width: 100%;
+  max-width: none;
+  color: #424b5c;
+  font-family: Aptos, "Microsoft YaHei UI", "PingFang SC", sans-serif;
+  font-size: 15px;
+  line-height: 1.82;
+}
+
 @media (max-width: 900px) {
   .auth-layout,
   .workspace,
@@ -9274,4 +9544,67 @@ h3,
   .document-summary > div { padding: 16px; }
   .document-table-head,
   .document-row { grid-template-columns: 36px minmax(220px, 1.5fr) 72px 94px 88px 140px 40px; }
+}
+
+/* Final cascade lock — the reference system must win over legacy themes above. */
+.workspace-shell.cobalt-shell { grid-template-columns: 345px minmax(0, 1fr); gap: 0; padding: 0; background: #f2f5f9; }
+.cobalt-shell .app-rail { display: none; }
+.cobalt-shell .knowledge-context { width: 345px; height: 100vh; padding: 24px 20px 22px; border: 0; border-right: 1px solid #e4e8ef; border-radius: 0; background: #f4f6f9; box-shadow: none; }
+.cobalt-shell .context-brand { min-height: 58px; display: flex; align-items: center; justify-content: flex-start; gap: 14px; padding: 0 !important; }
+.cobalt-shell .context-brand-mark { width: 55px; height: 55px; flex: 0 0 55px; border: 1px solid #dfe5ed; border-radius: 14px; color: #2368ed !important; background: #fff; box-shadow: 0 6px 18px rgba(35, 51, 76, .06); }
+.cobalt-shell .context-brand strong { color: #252d3c; font-size: 20px; font-weight: 700; }
+.cobalt-shell .new-conversation { width: 100%; min-height: 48px; margin: 28px 0 25px; border: 1.5px solid #3b70ff; border-radius: 9px; color: #2563e9; background: #fff; box-shadow: none; font-size: 15px; font-weight: 650; }
+.cobalt-shell .active-scope { min-height: 47px; grid-template-columns: 26px minmax(0, 1fr) 18px; gap: 10px; margin: 0; padding: 0 14px; border: 1px solid #dbe1e9; border-radius: 9px; background: #fff; box-shadow: none; }
+.cobalt-shell .active-scope:hover { border-color: #bcc9dd; background: #fff; }
+.cobalt-shell .scope-monogram { width: 26px; height: 26px; color: #1f9f72; background: transparent; }
+.cobalt-shell .scope-copy strong { color: #3f4858; font-size: 14px; font-weight: 550; }
+.cobalt-shell .active-scope > svg { transform: rotate(90deg); color: #7f8999; }
+.cobalt-shell .main-panel { position: relative; height: calc(100vh - 30px); min-width: 0; display: grid; grid-template-rows: 74px minmax(0, 1fr); margin: 15px 14px 15px 0; overflow: hidden; border: 1px solid #e2e7ee; border-radius: 16px; background: #fff; box-shadow: 0 10px 32px rgba(29, 41, 57, .055); }
+.cobalt-shell .topbar { position: relative; z-index: 20; min-height: 74px; display: flex; align-items: center; justify-content: space-between; padding: 0 34px; border-bottom: 1px solid #e9edf2; background: #fff; }
+.cobalt-shell .topbar-title { display: flex; align-items: center; gap: 22px; }
+.cobalt-shell .topbar-title > button { min-height: 40px; display: flex; align-items: center; gap: 10px; padding: 0; border: 0; color: #4d5665; background: transparent; font-size: 15px; }
+.cobalt-shell .status-pill { min-height: 38px; display: flex; align-items: center; gap: 9px; padding: 0 14px; border: 0; border-radius: 8px; color: #414b5b; background: #f2f4f7; font-size: 14px; font-weight: 500; }
+.cobalt-shell .status-pill i { width: 8px; height: 8px; border-radius: 50%; background: #21b878; box-shadow: 0 0 0 4px #e2f5ed; }
+.cobalt-shell .topbar-actions { display: flex; align-items: center; gap: 10px; }
+.cobalt-shell .topbar-actions > button { width: 42px; height: 42px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 8px; color: #566173; background: transparent; }
+.cobalt-shell .work-panel { height: auto; min-height: 0; overflow: hidden; background: #fff; }
+.cobalt-shell .work-panel > :not(.chat-stage),
+.cobalt-shell .work-panel > .document-console { height: 100%; padding: 24px 34px 32px; overflow-y: auto; background: #fff; }
+.cobalt-shell .chat-stage,
+.cobalt-shell .chat-stage:has(.answer-layout) { position: relative; width: 100%; height: 100%; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto auto; align-content: stretch; gap: 0; padding: 0 38px 13px; overflow: hidden; background: #fff; }
+.cobalt-shell .assistant-message-row .answer-card { padding: 20px 20px 18px; border: 1px solid #dfe4eb; border-radius: 11px; background: #fff; box-shadow: none; }
+.cobalt-shell .assistant-message-row > .assistant-avatar { grid-column: 1; grid-row: 1; }
+.cobalt-shell .assistant-message-row .answer-card { grid-column: 2; grid-row: auto; width: 100%; height: auto; min-height: 0; overflow: visible; }
+.cobalt-shell .status-pill svg { padding: 0; border-radius: 0; color: #8b95a5; background: transparent; }
+.cobalt-shell .answer-body { color: #424b5c; font-family: "Microsoft YaHei UI", "PingFang SC", sans-serif; font-size: 14px; line-height: 1.85; }
+.cobalt-shell .answer-body p,
+.cobalt-shell .answer-body li { color: inherit; font-size: inherit; line-height: inherit; }
+.cobalt-shell .answer-text-section { display: grid; grid-template-columns: 46px minmax(0, 1fr); align-items: start; gap: 10px; margin: 0 0 12px; }
+.cobalt-shell .answer-text-section > strong { color: #273142; font-size: 14px; line-height: 1.85; }
+.cobalt-shell .answer-text-section > p,
+.cobalt-shell .answer-text-section > ol { margin: 0; }
+.cobalt-shell .answer-points-section { grid-template-columns: 46px minmax(0, 1fr); }
+.cobalt-shell .answer-points-section .answer-points { padding-left: 22px; }
+.cobalt-shell .reference-composer { height: 106px; min-height: 106px; max-height: 106px; grid-template-rows: 56px 34px; }
+.cobalt-shell .reference-composer textarea { height: 56px; min-height: 0; max-height: 56px; resize: none; }
+.cobalt-shell .monitor-disclosures { grid-template-columns: minmax(0, 1fr); }
+.cobalt-shell .monitor-disclosure,
+.cobalt-shell .monitor-disclosure:nth-child(2),
+.cobalt-shell .monitor-disclosure:nth-child(3),
+.cobalt-shell .monitor-disclosure:last-child { grid-column: 1; grid-row: auto; }
+.cobalt-shell .assistant-message-row .answer-body {
+  width: 100%;
+  max-width: none;
+  color: #424b5c;
+  font-family: Aptos, "Microsoft YaHei UI", "PingFang SC", sans-serif;
+  font-size: 15px;
+  line-height: 1.82;
+}
+
+@media (max-width: 1100px) {
+  .workspace-shell.cobalt-shell { grid-template-columns: 270px minmax(0, 1fr); }
+  .cobalt-shell .knowledge-context { width: 270px; padding-inline: 16px; }
+  .cobalt-shell .topbar { padding-inline: 20px; }
+  .cobalt-shell .status-pill { display: none; }
+  .cobalt-shell .chat-stage { padding-inline: 22px; }
 }

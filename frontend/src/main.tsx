@@ -1,12 +1,14 @@
 import React, { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
+  Bookmark,
   BookOpen,
   Bot,
   Check,
   CircleAlert,
   CircleCheckBig,
   ChevronRight,
+  Clock3,
   Database,
   FileText,
   Hourglass,
@@ -14,7 +16,10 @@ import {
   Loader2,
   LogOut,
   MessageSquareText,
+  MoreHorizontal,
   MoreVertical,
+  PanelLeft,
+  Paperclip,
   Pencil,
   Plus,
   RefreshCw,
@@ -22,6 +27,7 @@ import {
   Send,
   Settings,
   ShieldCheck,
+  Sparkles,
   Trash2,
   UploadCloud,
   X
@@ -189,6 +195,10 @@ function Workspace({ user, onLogout }: { user: CurrentUser; onLogout: () => void
   const [profileOpen, setProfileOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
+  const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
+  const [sidebarHistory, setSidebarHistory] = useState<QaRecord[]>([]);
+  const [requestedHistory, setRequestedHistory] = useState<QaRecord | null>(null);
+  const [chatResetKey, setChatResetKey] = useState(0);
   const backupInputRef = useRef<HTMLInputElement | null>(null);
   const selected = useMemo(() => knowledgeBases.find((item) => item.id === selectedId) ?? knowledgeBases[0] ?? null, [knowledgeBases, selectedId]);
   const canAdmin = canAdminKnowledgeBase(selected);
@@ -199,6 +209,21 @@ function Workspace({ user, onLogout }: { user: CurrentUser; onLogout: () => void
 
   useEffect(() => { void refreshKnowledgeBases(); }, []);
   useEffect(() => { setName(selected?.name ?? ""); setDescription(selected?.description ?? ""); }, [selected?.id]);
+  useEffect(() => {
+    if (!selected) { setSidebarHistory([]); return; }
+    api.listQaHistory(selected.id).then(setSidebarHistory).catch(() => setSidebarHistory([]));
+  }, [selected?.id]);
+
+  function startNewConversation() {
+    setRequestedHistory(null);
+    setChatResetKey((value) => value + 1);
+    setTab("chat");
+  }
+
+  function openSidebarHistory(item: QaRecord) {
+    setRequestedHistory(item);
+    setTab("chat");
+  }
 
   async function refreshKnowledgeBases() {
     setLoading(true);
@@ -206,7 +231,15 @@ function Workspace({ user, onLogout }: { user: CurrentUser; onLogout: () => void
     try {
       const list = await api.listKnowledgeBases();
       setKnowledgeBases(list);
-      setSelectedId((current) => current && list.some((item) => item.id === current) ? current : list[0]?.id ?? null);
+      const currentStillExists = selectedId && list.some((item) => item.id === selectedId);
+      if (currentStillExists) return;
+      const histories = await Promise.all(list.map(async (item) => {
+        try { return { item, history: await api.listQaHistory(item.id) }; }
+        catch { return { item, history: [] as QaRecord[] }; }
+      }));
+      const preferred = histories.sort((left, right) => right.history.length - left.history.length)[0];
+      setSelectedId(preferred?.item.id ?? list[0]?.id ?? null);
+      if (preferred?.history) setSidebarHistory(preferred.history);
     } catch (exception) {
       setError(exception instanceof Error ? exception.message : "操作失败");
     } finally {
@@ -298,52 +331,45 @@ function Workspace({ user, onLogout }: { user: CurrentUser; onLogout: () => void
 
       <aside className="sidebar knowledge-context">
         <div className="context-heading context-brand">
-          <span className="context-brand-mark" aria-hidden="true"><Bot size={22} /></span>
-          <div><strong>企业知识库</strong><small>可信知识工作台</small></div>
+          <span className="context-brand-mark" aria-hidden="true"><BookOpen size={24} /></span>
+          <div><strong>企业知识库</strong></div>
+          <button className="sidebar-collapse" type="button" aria-label="收起侧栏"><PanelLeft size={19} /></button>
         </div>
-        <button className="active-scope" type="button" onClick={() => setSettingsOpen(true)} disabled={!selected}>
-          <div className="scope-monogram" aria-hidden="true"><BookOpen size={19} /></div>
+        <button className="new-conversation" onClick={startNewConversation}><Plus size={18} />开启新对话</button>
+        <div className="reference-sidebar-label">知识库</div>
+        <button className="active-scope" type="button" onClick={() => setWorkspaceMenuOpen((value) => !value)} disabled={!selected}>
+          <div className="scope-monogram" aria-hidden="true"><Layers3 size={18} /></div>
           <div className="scope-copy"><strong title={selected?.name}>{selected?.name ?? "尚未选择"}</strong></div>
           <ChevronRight size={14} />
         </button>
-        <button className="new-conversation" onClick={() => setTab("chat")}><Plus size={18} />开启新对话</button>
-        <button className="create-knowledge-base" onClick={createKnowledgeBase} disabled={saving}><BookOpen size={16} />{saving ? "正在创建..." : "新建知识库"}</button>
-        <nav className="sidebar-navigation" aria-label="工作区导航">
-          <button className={tab === "chat" ? "active" : ""} onClick={() => { setTab("chat"); setSettingsMenuOpen(false); }}><MessageSquareText size={18} /><span>问答</span></button>
-          <button className={tab === "documents" ? "active" : ""} onClick={() => { setTab("documents"); setSettingsMenuOpen(false); }}><FileText size={18} /><span>文档</span></button>
-          <button className={tab === "tasks" ? "active" : ""} onClick={() => { setTab("tasks"); setSettingsMenuOpen(false); }}><Check size={18} /><span>任务</span></button>
-          <div className="sidebar-settings-entry">
-            <button className={["monitor", "rag", "admin"].includes(tab) ? "active" : ""} onClick={() => setSettingsMenuOpen((value) => !value)}><Settings size={18} /><span>设置</span></button>
-            {settingsMenuOpen && <div className="sidebar-settings-menu">
-              <button onClick={() => { setSettingsOpen(true); setSettingsMenuOpen(false); }}>知识库设置</button>
-              {user.role === "ADMIN" && <button onClick={() => { setTab("rag"); setSettingsMenuOpen(false); }}>RAG 配置</button>}
-              {user.role === "ADMIN" && <button onClick={() => { setTab("monitor"); setSettingsMenuOpen(false); }}>系统状态</button>}
-              {user.role === "ADMIN" && <button onClick={() => { setTab("admin"); setSettingsMenuOpen(false); }}>系统管理</button>}
-            </div>}
-          </div>
-        </nav>
-        <div className="context-section-title"><span>知识库</span><small>{knowledgeBases.length}</small></div>
-        <div className="search-box"><Search size={16} /><input value={kbQuery} onChange={(event) => setKbQuery(event.target.value)} placeholder="搜索知识库" /></div>
-        <div className="kb-list">
-          {loading && <div className="muted-row"><Loader2 className="spin" size={16} />正在加载...</div>}
-          {!loading && knowledgeBases.length === 0 && <button className="empty-kb" onClick={createKnowledgeBase}>创建第一个知识库</button>}
-          {filtered.map((item) => <button key={item.id} className={"kb-item " + (selected?.id === item.id ? "active" : "")} onClick={() => setSelectedId(item.id)}><BookOpen size={17} /><span>{item.name}</span><em className={"kb-role role-" + item.accessRole.toLowerCase()}>{roleLabel(item.accessRole)}</em><ChevronRight size={15} /></button>)}
-        </div>
-        <div className="sidebar-footer">
-          <button className="manage-scope" onClick={() => setSettingsOpen(true)} disabled={!selected}><Settings size={17} /><span><strong>知识空间管理</strong><small>文档、成员与权限</small></span><ChevronRight size={15} /></button>
-          <div className="sidebar-account"><button onClick={() => setProfileOpen(true)}><span>{user.username.slice(0, 1).toUpperCase()}</span><strong>{user.username}</strong></button><button className="sidebar-logout" onClick={onLogout} title="退出登录"><LogOut size={16} /></button></div>
+        <div className="reference-sidebar-label recent-label">最近对话</div>
+        <div className="sidebar-conversation-list">
+          {sidebarHistory.length === 0 && <span className="sidebar-empty-history">暂无对话记录</span>}
+          {sidebarHistory.slice(0, 8).map((item, index) => <button type="button" key={item.id} className={requestedHistory?.id === item.id || (!requestedHistory && index === 0 && tab === "chat") ? "active" : ""} onClick={() => openSidebarHistory(item)}><MessageSquareText size={16} /><span>{item.question}</span></button>)}
         </div>
       </aside>
 
       <section className="main-panel">
         <header className="topbar">
-          <div className="topbar-title"><strong>知识 AI</strong><div className="status-pill"><Check size={13} />仅检索你有权限访问的内容</div></div>
-          <div className="topbar-actions"><button className="evidence-nav" onClick={() => setTab("chat")}><BookOpen size={16} />证据舱</button><button className="topbar-settings" onClick={() => setSettingsOpen(true)} disabled={!selected}><Settings size={17} />管理</button><button className="topbar-logout" onClick={onLogout} title="退出登录"><LogOut size={17} /></button></div>
+          <div className="topbar-title"><button type="button" onClick={() => setWorkspaceMenuOpen((value) => !value)}>当前空间：{selected?.name ?? "未选择"}<ChevronRight size={14} /></button><div className="status-pill"><i />知识来源范围：{selected?.name ?? "未选择知识库"}<ChevronRight size={14} /></div></div>
+          <div className="topbar-actions"><button onClick={() => setTab("chat")} title="最近问答"><Clock3 size={20} /></button><button onClick={() => setTab("documents")} title="文档库"><Bookmark size={20} /></button><button onClick={() => setWorkspaceMenuOpen((value) => !value)} title="更多功能"><MoreHorizontal size={22} /></button></div>
+          {workspaceMenuOpen && <div className="workspace-menu">
+            <button onClick={() => { setTab("chat"); setWorkspaceMenuOpen(false); }}><MessageSquareText size={16} />知识问答</button>
+            <button onClick={() => { setTab("documents"); setWorkspaceMenuOpen(false); }}><FileText size={16} />文档库</button>
+            <button onClick={() => { setTab("tasks"); setWorkspaceMenuOpen(false); }}><Check size={16} />任务中心</button>
+            <button onClick={() => { void createKnowledgeBase(); setWorkspaceMenuOpen(false); }}><Plus size={16} />新建知识库</button>
+            <button onClick={() => { setSettingsOpen(true); setWorkspaceMenuOpen(false); }}><Settings size={16} />知识库设置</button>
+            {user.role === "ADMIN" && <button onClick={() => { setTab("rag"); setWorkspaceMenuOpen(false); }}><Bot size={16} />RAG 配置</button>}
+            {user.role === "ADMIN" && <button onClick={() => { setTab("monitor"); setWorkspaceMenuOpen(false); }}><Database size={16} />系统状态</button>}
+            {user.role === "ADMIN" && <button onClick={() => { setTab("admin"); setWorkspaceMenuOpen(false); }}><ShieldCheck size={16} />系统管理</button>}
+            <button onClick={() => { setProfileOpen(true); setWorkspaceMenuOpen(false); }}>个人中心</button>
+            <button onClick={onLogout}><LogOut size={16} />退出登录</button>
+          </div>}
         </header>
         {error && <div className="inline-error workspace-error">{error}</div>}
         <section className="work-panel">
           {tab === "documents" && <DocumentStage selected={selected} />}
-          {tab === "chat" && <ChatStage selected={selected} canDebug={user.role === "ADMIN"} />}
+          {tab === "chat" && <ChatStage selected={selected} canDebug={user.role === "ADMIN"} requestedHistory={requestedHistory} resetKey={chatResetKey} onHistoryChanged={setSidebarHistory} />}
           {tab === "rag" && <RagStage selected={selected} />}
           {tab === "tasks" && <TaskCenterStage />}
           {tab === "monitor" && <MonitorStage />}
@@ -724,7 +750,7 @@ function VectorProgress({ label, value, text, tone = value === 100 ? "synced" : 
   );
 }
 
-function ChatStage({ selected, canDebug = false }: { selected: KnowledgeBase | null; canDebug?: boolean }) {
+function ChatStage({ selected, canDebug = false, requestedHistory, resetKey, onHistoryChanged }: { selected: KnowledgeBase | null; canDebug?: boolean; requestedHistory: QaRecord | null; resetKey: number; onHistoryChanged: (items: QaRecord[]) => void }) {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<RagAnswer | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -737,13 +763,17 @@ function ChatStage({ selected, canDebug = false }: { selected: KnowledgeBase | n
   const [error, setError] = useState("");
   const answerRef = useRef<HTMLElement | null>(null);
 
-  useEffect(() => { setAnswer(null); setSessionId(null); setDebug(null); setHistory([]); setActiveCitationId(null); if (selected) void loadHistory(); }, [selected?.id]);
-  async function loadHistory() {
+  useEffect(() => { setAnswer(null); setQuestion(""); setSessionId(null); setDebug(null); setHistory([]); setActiveCitationId(null); if (selected) void loadHistory(true); }, [selected?.id]);
+  useEffect(() => { if (requestedHistory) openHistory(requestedHistory); }, [requestedHistory?.id]);
+  useEffect(() => { setAnswer(null); setQuestion(""); setSessionId(null); setDebug(null); setDebugOpen(false); setActiveCitationId(null); }, [resetKey]);
+  async function loadHistory(openLatest = false) {
     if (!selected) return;
     try {
       const items = await api.listQaHistory(selected.id);
       setHistory(items);
+      onHistoryChanged(items);
       setSessionId((current) => current ?? items.find((item) => item.sessionId)?.sessionId ?? null);
+      if (openLatest && items[0]) openHistory(items[0]);
     } catch { /* optional */ }
   }
   async function ask(event: FormEvent) {
@@ -779,6 +809,7 @@ function ChatStage({ selected, canDebug = false }: { selected: KnowledgeBase | n
         },
         onError: (message) => setError(message)
       });
+      setQuestion("");
       await loadHistory();
     } catch (exception) {
       setError(exception instanceof Error ? exception.message : "操作失败");
@@ -796,7 +827,7 @@ function ChatStage({ selected, canDebug = false }: { selected: KnowledgeBase | n
   }
 
   function openHistory(item: QaRecord) {
-    setQuestion(item.question);
+    setQuestion("");
     setAnswer(item);
     setSessionId(item.sessionId ?? null);
     setDebugOpen(false);
@@ -805,81 +836,33 @@ function ChatStage({ selected, canDebug = false }: { selected: KnowledgeBase | n
 
   return (
     <div className="chat-stage">
-      <header className="workspace-page-head chat-page-head">
-        <div><h2>知识问答</h2><p>基于当前知识库生成可追溯、有依据的回答。</p></div>
-        <span className="scope-safety"><ShieldCheck size={15} />知识来源：{selected?.name ?? "未选择知识库"}</span>
-      </header>
-      <form className={"ask-box " + (answer ? "follow-up" : "first-question")} onSubmit={ask}>
-        {!answer && <div className="ask-head">
-          <div>
-            <strong>{selected ? selected.name : "未选择知识库"}</strong>
-            <span>流式回答会实时输出，并保留引用定位与历史回看。</span>
-          </div>
-          <select value={style} onChange={(event) => setStyle(event.target.value as AnswerStyle)}>
-            <option value="STRICT">严谨模式</option>
-            <option value="BRIEF">简洁模式</option>
-            <option value="INTERVIEW">面试模式</option>
-          </select>
-        </div>}
-        <textarea value={question} onChange={(event) => setQuestion(event.target.value)} placeholder={answer ? "继续追问，或输入新的企业知识问题..." : "输入你的问题"} rows={answer ? 1 : 4} />
-        <div className="editor-actions">
-          <button className="primary-action compact" type="submit" disabled={!selected || loading || !question.trim()} title={loading ? "生成中" : "发送问题"}>{loading ? <Loader2 className="spin" size={17} /> : <Send size={18} />}<span>{loading ? "生成中" : answer ? "发送" : "开始提问"}</span></button>
-          {canDebug && !answer && <button type="button" className="admin-debug-action" onClick={runDebug} disabled={!selected || loading || !question.trim()}><ShieldCheck size={16} />管理员诊断</button>}
-        </div>
-      </form>
-      {!answer && <div className="question-suggestions" aria-label="推荐问题">
-        {["这份知识库包含哪些主题？", "总结最重要的知识点", "给我一组面试复习问题"].map((item) => <button type="button" key={item} onClick={() => setQuestion(item)}>{item}</button>)}
-      </div>}
       {error && <div className="inline-error">{error}</div>}
       {answer && (
-        <section className="answer-layout" ref={answerRef}>
-          <article className={"answer-card " + (loading ? "streaming" : "")}>
-            <div className="answer-kicker"><i />ANSWER CANVAS · {selected?.name.toUpperCase()}</div>
-            <div className="answer-head">
-              <div>
-                <strong>{answer.question}</strong>
-                <span>{answerStyleLabel(answer.answerStyle ?? style)}</span>
-              </div>
-              {loading && <em className="streaming-badge"><Loader2 className="spin" size={14} />流式生成中</em>}
-            </div>
-            <div className="answer-meta">
-              <span>{answerStyleLabel(answer.answerStyle ?? style)}</span>
-              <span>基于 {answer.hitCount || answer.citations.length} 份资料</span>
-            </div>
+        <section className="reference-conversation" ref={answerRef}>
+          <div className="user-message-row"><div>{answer.question}</div><span>我</span></div>
+          <div className="assistant-message-row">
+            <span className="assistant-avatar"><Bot size={22} /></span>
+            <article className={"answer-card " + (loading ? "streaming" : "")}>
+            {loading && <em className="streaming-badge"><Loader2 className="spin" size={14} />生成中</em>}
             {answer.answer ? (
               <div className="answer-body">{renderAnswerBody(answer.answer, answer.citations, jumpToCitation)}</div>
             ) : (
               <div className="streaming-placeholder"><Loader2 className="spin" size={16} />正在组织答案...</div>
             )}
-          </article>
-          <section className="citation-list">
-            <div className="evidence-kicker">TRACEABLE EVIDENCE</div>
-            <div className="evidence-heading"><strong>证据舱</strong><p>显示可读来源与定位，不暴露内部检索实现。</p></div>
-            <div className="document-list-head">
-              <strong>引用来源</strong>
-              <span>{answer.citations.length} 份资料</span>
-            </div>
-            {answer.citations.length === 0 && <div className="muted-document">暂无可展示的引用资料</div>}
-            {answer.citations.map((citation, index) => (
-              <article id={`citation-${citation.chunkId}`} className={"citation-card " + (activeCitationId === citation.chunkId ? "active" : "")} key={citation.chunkId}>
-                <header>
-                  <span className="source-index">{String(index + 1).padStart(2, "0")}</span>
-                  <strong>{citation.documentName}</strong>
-                </header>
-                <div className="source-label"><ShieldCheck size={14} />已核对的知识库来源</div>
-                <p>{renderQuestionHighlights(citation.content, answer.question)}</p>
-                <button className="citation-open" type="button" onClick={() => jumpToCitation(citation)}>查看原文 →</button>
-              </article>
-            ))}
-          </section>
+            {answer.citations.length > 0 && <section className="inline-citations"><strong>参考来源</strong>{answer.citations.slice(0, 2).map((citation, index) => <button id={`citation-${citation.chunkId}`} type="button" className={activeCitationId === citation.chunkId ? "active" : ""} key={citation.chunkId} onClick={() => jumpToCitation(citation)}><FileText size={15} /><span><i>{index + 1}</i>{citation.documentName}</span><em>查看</em></button>)}</section>}
+            </article>
+          </div>
         </section>
       )}
+      {!answer && <section className="chat-empty-state"><span className="assistant-avatar"><Bot size={24} /></span><strong>从企业知识中找到可靠答案</strong><p>选择一个推荐问题，或在下方输入你的问题。</p></section>}
+      <section className="reference-suggestions" aria-label="推荐问题"><strong>你可能还想问</strong><div>{["缓存穿透和缓存雪崩有什么区别？", "布隆过滤器的误判率如何控制？", "缓存空对象的过期时间怎么设置？", "如何结合限流防止缓存穿透？"].map((item) => <button type="button" key={item} onClick={() => setQuestion(item)}>{item}</button>)}</div></section>
+      <form className="reference-composer" onSubmit={ask}>
+        <textarea value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="输入你的问题，/ 唤起快捷指令" rows={2} />
+        <div className="composer-tools"><button type="button" title="添加附件"><Paperclip size={20} /></button><label title="回答风格"><Sparkles size={20} /><select value={style} onChange={(event) => setStyle(event.target.value as AnswerStyle)}><option value="STRICT">严谨</option><option value="BRIEF">简洁</option><option value="INTERVIEW">面试</option></select></label></div>
+        <button className="composer-send" type="submit" disabled={!selected || loading || !question.trim()} title={loading ? "生成中" : "发送问题"}>{loading ? <Loader2 className="spin" size={20} /> : <Send size={21} />}</button>
+        {canDebug && <button type="button" className="composer-debug" onClick={runDebug} disabled={!selected || loading || !question.trim()} title="管理员诊断"><ShieldCheck size={17} /></button>}
+      </form>
       {canDebug && debug && <section className="debug-panel"><button type="button" onClick={() => setDebugOpen((value) => !value)}>{debugOpen ? "收起管理员诊断" : "展开管理员诊断"}</button>{debugOpen && <div><div className="diagnostic-warning"><ShieldCheck size={16} />以下内容仅对管理员展示，可能包含内部检索参数。</div><h3>{debugSummaryTitle(debug)}</h3><p>{debugSummaryText(debug)}</p>{debug.chunks.map((chunk) => <article className="chunk-card" key={chunk.chunkId}><strong>{chunk.documentName} #{chunk.chunkNo} | 得分 {formatScore(chunk.finalScore)}</strong><p>{debugChunkReason(chunk)}</p><p>{chunk.content}</p></article>)}</div>}</section>}
-      <section className="history-list">
-        <div className="document-list-head"><strong>最近问答</strong><span>{history.length} 条</span></div>
-        {history.length === 0 && <div className="muted-document">暂无问答记录</div>}
-        {history.slice(0, 10).map((item) => <article key={item.id} className="history-row"><button type="button" className="history-content" onClick={() => openHistory(item)}><strong>{item.question}</strong><span>{formatDateTime(item.createdAt)} · {item.hitCount} 份参考资料</span></button></article>)}
-      </section>
     </div>
   );
 }
@@ -1494,6 +1477,15 @@ function renderAnswerBody(answer: string, citations: Array<{ chunkId: string }>,
   if (blocks.length === 0) return null;
   return blocks.map((block, blockIndex) => {
     const lines = block.split(/\n/).map((line) => line.trim()).filter(Boolean);
+    const labelledSection = block.match(/^(结论|说明|依据|建议|总结)[:：]?\s*([\s\S]+)$/);
+    if (labelledSection) {
+      return <section className="answer-text-section" key={`section-${blockIndex}`}><strong>{labelledSection[1]}</strong><p>{renderAnswerInline(labelledSection[2], citations, onCitationClick)}</p></section>;
+    }
+    const pointsSection = block.match(/^要点[:：]?\s*([\s\S]+)$/);
+    if (pointsSection) {
+      const points = pointsSection[1].split(/(?=\d+[.、]\s*)/).map((item) => item.replace(/^\d+[.、]\s*/, "").trim()).filter(Boolean);
+      return <section className="answer-text-section answer-points-section" key={`points-${blockIndex}`}><strong>要点</strong><ol className="answer-points">{points.map((point, pointIndex) => <li key={pointIndex}>{renderAnswerInline(point, citations, onCitationClick)}</li>)}</ol></section>;
+    }
     if (lines.length > 1 && lines.every((line) => /^\d+[.、]\s*/.test(line))) {
       return <ol className="answer-points" key={`ol-${blockIndex}`}>{lines.map((line, lineIndex) => <li key={lineIndex}>{renderAnswerInline(line.replace(/^\d+[.、]\s*/, ""), citations, onCitationClick)}</li>)}</ol>;
     }
