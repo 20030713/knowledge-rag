@@ -213,6 +213,7 @@ function Workspace({ user, onLogout }: { user: CurrentUser; onLogout: () => void
       const created = await api.createKnowledgeBase({ name: "新的知识库", description: "从工作台创建" });
       setKnowledgeBases((items) => [created, ...items]);
       setSelectedId(created.id);
+      setSettingsOpen(true);
     } catch (exception) {
       setError(exception instanceof Error ? exception.message : "操作失败");
     } finally {
@@ -292,12 +293,13 @@ function Workspace({ user, onLogout }: { user: CurrentUser; onLogout: () => void
         <div className="context-heading">
           <div><span>ENTERPRISE KNOWLEDGE</span><strong>你的知识工作区</strong></div>
         </div>
-        <div className="active-scope">
-          <div className="scope-monogram" aria-hidden="true">{selected?.name.trim().slice(0, 1).toUpperCase() || "知"}</div>
-          <div className="scope-copy"><strong>{selected?.name ?? "尚未选择"}</strong><p>{selected?.description || "选择一个知识库后开始提问。"}</p></div>
+        <button className="active-scope" type="button" onClick={() => setSettingsOpen(true)} disabled={!selected}>
+          <div className="scope-monogram" aria-hidden="true"><BookOpen size={19} /></div>
+          <div className="scope-copy"><strong title={selected?.name}>{selected?.name ?? "尚未选择"}</strong><p>{selected ? `${roleLabel(selected.accessRole)} · ${selected.memberCount} 位成员` : "选择一个知识库后开始提问"}</p></div>
           <ChevronRight size={14} />
-        </div>
+        </button>
         <button className="new-conversation" onClick={() => setTab("chat")}><Plus size={18} />开始新对话</button>
+        <button className="create-knowledge-base" onClick={createKnowledgeBase} disabled={saving}><BookOpen size={16} />{saving ? "正在创建..." : "新建知识库"}</button>
         <div className="context-section-title"><span>RECENT KNOWLEDGE</span><small>{knowledgeBases.length}</small></div>
         <div className="search-box"><Search size={16} /><input value={kbQuery} onChange={(event) => setKbQuery(event.target.value)} placeholder="搜索知识库" /></div>
         <div className="kb-list">
@@ -536,39 +538,42 @@ function DocumentStage({ selected }: { selected: KnowledgeBase | null }) {
   }, [documents]);
 
   return (
-    <div className="document-stage">
-      <section className="stage-overview">
-        <div>
-          <span>文档总数</span>
-          <strong>{documentStats.total}</strong>
+    <div className="document-stage document-console">
+      <header className="document-console-head">
+        <div><span>CONTENT LIBRARY</span><h2>文档库</h2><p>上传、解析并维护当前知识库的检索内容。</p></div>
+        <div className="document-head-actions">
+          <button onClick={loadDocuments} disabled={!selected || loading}>刷新</button>
+          <button className="primary-action compact" onClick={() => fileInputRef.current?.click()} disabled={!selected || !canEdit || uploading}>{uploading ? <Loader2 className="spin" size={17} /> : <UploadCloud size={17} />}上传文档</button>
         </div>
-        <div>
-          <span>已完成</span>
-          <strong>{documentStats.completed}</strong>
-        </div>
-        <div>
-          <span>解析中</span>
-          <strong>{documentStats.parsing}</strong>
-        </div>
-        <div>
-          <span>失败</span>
-          <strong>{documentStats.failed}</strong>
-        </div>
-        <div>
-          <span>切片总数</span>
-          <strong>{documentStats.totalChunks}</strong>
-        </div>
+      </header>
+      <input ref={fileInputRef} type="file" onChange={uploadDocument} hidden />
+      <section className="document-summary" aria-label="文档概览">
+        <div><strong>{documentStats.total}</strong><span>全部文档</span></div>
+        <div><strong>{documentStats.completed}</strong><span>已就绪</span></div>
+        <div><strong>{documentStats.parsing}</strong><span>处理中</span></div>
+        <div className={documentStats.failed > 0 ? "has-error" : ""}><strong>{documentStats.failed}</strong><span>需处理</span></div>
+        <div><strong>{documentStats.totalChunks}</strong><span>可检索切片</span></div>
       </section>
-      <div className="stage-actions">
-        <input ref={fileInputRef} type="file" onChange={uploadDocument} hidden />
-        <button className="primary-action compact" onClick={() => fileInputRef.current?.click()} disabled={!selected || !canEdit || uploading}>{uploading ? <Loader2 className="spin" size={17} /> : <UploadCloud size={17} />}上传文档</button>
-        <button onClick={loadDocuments} disabled={!selected || loading}>刷新</button>
-        <button onClick={loadIndexStatus} disabled={!selected}>索引状态</button>
-        <button onClick={() => syncVectors()} disabled={!selected || !canEdit || operatingId === "kb"}>同步知识库向量</button>
+      <div className="document-toolbar">
+        <div className="document-toolbar-title"><FileText size={17} /><strong>文档列表</strong><span>{filteredDocuments.length} 项</span></div>
+        <div className="document-toolbar-actions">
+          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as DocumentStatusFilter)} aria-label="筛选文档状态">{["ALL", "UPLOADED", "PARSING", "COMPLETED", "FAILED"].map((status) => <option key={status} value={status}>{statusLabel(status as DocumentStatusFilter)}</option>)}</select>
+          <button onClick={loadIndexStatus} disabled={!selected}>索引概览</button>
+          <button onClick={() => syncVectors()} disabled={!selected || !canEdit || operatingId === "kb"}>同步向量</button>
+        </div>
       </div>
       {error && <div className="inline-error">{error}</div>}
-      <div className="filter-row"><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as DocumentStatusFilter)}>{["ALL", "UPLOADED", "PARSING", "COMPLETED", "FAILED"].map((status) => <option key={status} value={status}>{statusLabel(status as DocumentStatusFilter)}</option>)}</select></div>
-      <div className="document-list">{loading && <div className="muted-document"><Loader2 className="spin" size={18} />正在加载文档...</div>}{!loading && filteredDocuments.length === 0 && <div className="muted-document">暂无文档</div>}{filteredDocuments.map((doc) => <article key={doc.id} className={"document-card " + (selectedDocumentId === doc.id ? "active" : "")}><div><strong>{doc.fileName}</strong><span>{doc.fileType} | {formatFileSize(doc.fileSize)} | {doc.chunkCount} 个切片</span><small>{doc.errorMsg}</small></div><em className={"doc-status status-" + doc.status.toLowerCase()}>{statusLabel(doc.status)}</em><div className="document-actions"><button onClick={() => loadChunks(doc.id)}>切片</button><button onClick={() => parseDocument(doc.id)} disabled={!canEdit || operatingId === doc.id}>解析</button><button onClick={() => syncVectors(doc.id)} disabled={!canEdit || operatingId === doc.id}>向量</button><button className="danger-action" onClick={() => deleteDocument(doc.id)} disabled={!canEdit || operatingId === doc.id}>删除</button></div></article>)}</div>
+      <div className="document-table">
+        <div className="document-table-head"><span>名称</span><span>状态</span><span>更新时间</span><span>操作</span></div>
+        {loading && <div className="muted-document"><Loader2 className="spin" size={18} />正在加载文档...</div>}
+        {!loading && filteredDocuments.length === 0 && <div className="document-empty"><FileText size={24} /><strong>还没有符合条件的文档</strong><span>点击右上角“上传文档”开始构建知识库内容。</span></div>}
+        {!loading && filteredDocuments.map((doc) => <article key={doc.id} className={"document-row " + (selectedDocumentId === doc.id ? "active" : "")}>
+          <div className="document-identity"><span className="document-type">{doc.fileType?.slice(0, 3).toUpperCase() || "DOC"}</span><div><strong title={doc.fileName}>{doc.fileName}</strong><span>{formatFileSize(doc.fileSize)} · {doc.chunkCount} 个切片</span>{doc.errorMsg && <small>{doc.errorMsg}</small>}</div></div>
+          <em className={"doc-status status-" + doc.status.toLowerCase()}>{statusLabel(doc.status)}</em>
+          <time>{formatDateTime(doc.updatedAt)}</time>
+          <div className="document-actions"><button onClick={() => loadChunks(doc.id)}>切片</button><button onClick={() => parseDocument(doc.id)} disabled={!canEdit || operatingId === doc.id}>解析</button><button onClick={() => syncVectors(doc.id)} disabled={!canEdit || operatingId === doc.id}>向量</button><button className="danger-action" onClick={() => deleteDocument(doc.id)} disabled={!canEdit || operatingId === doc.id}>删除</button></div>
+        </article>)}
+      </div>
       {indexStatus && <VectorIndexPanel status={indexStatus} syncingId={operatingId} canSync={Boolean(selected && canEdit)} onSyncDocument={syncVectors} onSyncAll={() => syncVectors()} />}
       {selectedDocumentId && <section className="chunk-panel">
         <div className="chunk-panel-head">
@@ -582,7 +587,10 @@ function DocumentStage({ selected }: { selected: KnowledgeBase | null }) {
         {chunkSlice.map((chunk) => <article className={"chunk-card " + (showAllChunks ? "expanded" : "")} key={chunk.id}><header><strong>#{chunk.chunkNo}</strong><span>{chunk.charCount} 字符</span></header><p>{renderHighlightedText(chunk.content, chunkQuery)}</p></article>)}
         {visibleChunks.length > 5 && <button className="chunk-more" type="button" onClick={() => setShowAllChunks((value) => !value)}>{showAllChunks ? "收起到前 5 条" : `继续展开 ${visibleChunks.length - chunkSlice.length} 条切片`}</button>}
       </section>}
-      <form className="search-panel" onSubmit={searchChunks}><div className="panel-title"><Search size={18} /><span>检索预览</span></div><div className="search-box"><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="搜索文档内容" /><button type="submit">搜索</button></div>{searchResults.map((result) => <article className="chunk-card" key={result.chunkId}><strong>{result.documentName} #{result.chunkNo}</strong><p>{renderHighlightedText(result.snippet || result.content, searchQuery)}</p></article>)}</form>
+      <details className="document-search-disclosure">
+        <summary><span><Search size={17} /><strong>检索预览</strong><small>按需验证文档内容是否能够被找到</small></span><ChevronRight size={17} /></summary>
+        <form className="search-panel" onSubmit={searchChunks}><div className="search-box"><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="输入关键词搜索文档切片" /><button type="submit">搜索</button></div>{searchResults.map((result) => <article className="chunk-card" key={result.chunkId}><strong>{result.documentName} #{result.chunkNo}</strong><p>{renderHighlightedText(result.snippet || result.content, searchQuery)}</p></article>)}</form>
+      </details>
     </div>
   );
 }
