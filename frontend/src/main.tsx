@@ -293,7 +293,7 @@ function Workspace({ user, onLogout }: { user: CurrentUser; onLogout: () => void
           <div><span>ENTERPRISE KNOWLEDGE</span><strong>你的知识工作区</strong></div>
         </div>
         <div className="active-scope">
-          <div className="scope-monogram">{selected?.name.slice(0, 2).toUpperCase() ?? "KB"}</div>
+          <div className="scope-monogram" aria-hidden="true">{selected?.name.trim().slice(0, 1).toUpperCase() || "知"}</div>
           <div className="scope-copy"><strong>{selected?.name ?? "尚未选择"}</strong><p>{selected?.description || "选择一个知识库后开始提问。"}</p></div>
           <ChevronRight size={14} />
         </div>
@@ -1134,30 +1134,82 @@ function MonitorStage() {
   const [tasks, setTasks] = useState<DocumentTask[]>([]);
   const [logs, setLogs] = useState<TaskLog[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   useEffect(() => { void loadMonitor(); }, []);
-  async function loadMonitor() { setLoading(true); try { const [a, b, c, d, e, f] = await Promise.all([api.dashboardOverview(), api.dashboardHealth(), api.todayMetrics(), api.runtimeConfig(), api.diagnostics(), api.listDocumentTasks("ALL", 30)]); setOverview(a); setHealth(b); setMetrics(c); setRuntime(d); setDiagnostics(e); setTasks(f); } finally { setLoading(false); } }
-  async function showLogs(documentId: string) { setLogs(await api.listTaskLogs(documentId)); }
+  async function loadMonitor() {
+    setLoading(true);
+    setError("");
+    try {
+      const [a, b, c, d, e, f] = await Promise.all([api.dashboardOverview(), api.dashboardHealth(), api.todayMetrics(), api.runtimeConfig(), api.diagnostics(), api.listDocumentTasks("ALL", 30)]);
+      setOverview(a); setHealth(b); setMetrics(c); setRuntime(d); setDiagnostics(e); setTasks(f);
+    } catch (exception) {
+      setError(exception instanceof Error ? exception.message : "监控数据加载失败");
+    } finally {
+      setLoading(false);
+    }
+  }
+  async function showLogs(documentId: string) {
+    try { setLogs(await api.listTaskLogs(documentId)); } catch (exception) { setError(exception instanceof Error ? exception.message : "任务日志加载失败"); }
+  }
+  const unhealthyCount = health?.components.filter((item) => healthTone(item.status) !== "success").length ?? 0;
+  const pendingTaskCount = tasks.filter((task) => !["COMPLETED", "DONE", "SUCCESS"].includes(normalizeCode(task.status))).length;
   return (
-    <div className="monitor-stage">
-      <div className="stage-actions">
-        <button onClick={loadMonitor} disabled={loading}>{loading ? <Loader2 className="spin" size={16} /> : null}刷新监控</button>
-      </div>
-      {overview && (
-        <div className="stats-grid">
-          <StatusBar label="知识库" value={overview.knowledgeBaseCount} percent={100} tone="synced" />
-          <StatusBar label="文档" value={overview.documentCount} percent={100} tone="partial" />
-          <StatusBar label="切片" value={overview.chunkCount} percent={100} tone="fallback" />
-          <StatusBar label="问答" value={overview.qaCount} percent={100} tone="pending" />
+    <div className="monitor-stage monitor-console">
+      <header className="monitor-console-head">
+        <div><span>ADMIN · SYSTEM STATUS</span><h2>运行监控</h2><p>先看结论，需要排查时再展开内部详情。</p></div>
+        <div className="monitor-head-actions">
+          {health && <div className={"monitor-health-chip " + healthTone(health.status)}><i />{healthStatusLabel(health.status)}{unhealthyCount > 0 ? ` · ${unhealthyCount} 项异常` : ""}</div>}
+          <button onClick={loadMonitor} disabled={loading}>{loading ? <Loader2 className="spin" size={16} /> : null}刷新</button>
         </div>
-      )}
-      {metrics && <section className="settings-panel"><h3>今日指标</h3><p>问答 {metrics.qaCount} | 模型回答 {metrics.modelAnswerCount} | 本地回答 {metrics.localAnswerCount} | 兜底 {metrics.fallbackCount} | 平均耗时 {formatDuration(metrics.averageLatencyMs)}</p></section>}
-      {health && <section className="settings-panel"><h3>健康状态：{healthStatusLabel(health.status)}</h3>{health.components.map((component) => <div className="health-row" key={component.name}><strong>{componentLabel(component.name)}</strong><em className={healthTone(component.status)}>{healthStatusLabel(component.status)}</em><span>{component.message}</span></div>)}</section>}
-      {runtime && <section className="settings-panel"><h3>运行配置</h3>{runtime.items.map((item) => <article className="config-row" key={item.key}><strong>{item.label}</strong><em>{healthStatusLabel(item.status)}</em><span>{item.summary}</span></article>)}</section>}
-      {diagnostics && <section className="settings-panel"><h3>系统诊断：{healthStatusLabel(diagnostics.status)}</h3>{diagnostics.items.map((item) => <article className="config-row" key={item.key}><strong>{item.label}</strong><em>{healthStatusLabel(item.status)}</em><span>{item.message}</span></article>)}</section>}
-      <section className="task-panel"><h3>文档任务</h3>{tasks.map((task) => <article className="task-row" key={task.id}><div><strong>{task.fileName}</strong><span>{statusLabel(task.status)} | {task.chunkCount} 个切片 | 更新于 {formatDateTime(task.updatedAt)}</span>{task.queueStatus && <span className="queue-status-line">队列 {queueStatusLabel(task.queueStatus)} | 重试 {task.queueRetryCount ?? 0}{task.queueStartedAt ? " | 开始于 " + formatDateTime(task.queueStartedAt) : ""}</span>}{task.queueErrorMsg && <small>{task.queueErrorMsg}</small>}</div><button onClick={() => showLogs(task.id)}>日志</button></article>)}</section>
-      {logs.length > 0 && <section className="task-panel"><h3>任务日志</h3>{logs.map((log) => <article className="task-row" key={log.id}><div><strong>{taskTypeLabel(log.taskType)} | {taskStatusLabel(log.status)}</strong><span>{log.message} | {formatDuration(log.durationMs)} | {formatDateTime(log.createdAt)}</span></div></article>)}</section>}
+      </header>
+      {error && <div className="inline-error">{error}</div>}
+
+      <section className="monitor-summary" aria-label="系统摘要">
+        <MonitorSummary label="知识库" value={overview?.knowledgeBaseCount ?? 0} hint="可用知识空间" />
+        <MonitorSummary label="文档" value={overview?.documentCount ?? 0} hint={`${overview?.failedDocumentCount ?? 0} 份需关注`} tone={(overview?.failedDocumentCount ?? 0) > 0 ? "warning" : "normal"} />
+        <MonitorSummary label="问答" value={metrics?.qaCount ?? 0} hint="今日请求" />
+        <MonitorSummary label="平均响应" value={formatDuration(metrics?.averageLatencyMs)} hint="今日平均" />
+        <MonitorSummary label="模型成功率" value={metrics ? `${Math.round(metrics.modelSuccessRate)}%` : "-"} hint="今日模型调用" />
+        <MonitorSummary label="待处理任务" value={pendingTaskCount} hint={`共 ${tasks.length} 条任务`} tone={pendingTaskCount > 0 ? "warning" : "normal"} />
+      </section>
+
+      <div className="monitor-disclosures">
+        {health && <details className="monitor-disclosure">
+          <summary><div><strong>服务健康</strong><span>数据库、缓存、模型与向量库连接状态</span></div><em className={healthTone(health.status)}>{healthStatusLabel(health.status)}</em><ChevronRight size={18} /></summary>
+          <div className="monitor-detail-body health-detail-grid">
+            {health.components.map((component) => <article className="monitor-service-row" key={component.name}><i className={healthTone(component.status)} /><div><strong>{componentLabel(component.name)}</strong><span>{component.message}</span></div><em>{component.latencyMs === null ? healthStatusLabel(component.status) : formatDuration(component.latencyMs)}</em></article>)}
+          </div>
+        </details>}
+
+        {runtime && <details className="monitor-disclosure">
+          <summary><div><strong>运行配置</strong><span>模型、缓存、限流和向量后端的内部配置</span></div><em>{runtime.items.length} 项</em><ChevronRight size={18} /></summary>
+          <div className="monitor-detail-body config-detail-list">
+            {runtime.items.map((item) => <article className="monitor-config-row" key={item.key}><div><strong>{item.label}</strong><span>{item.summary}</span></div><em className={healthTone(item.status)}>{healthStatusLabel(item.status)}</em>{item.details.length > 0 && <ul>{item.details.map((detail, index) => <li key={index}>{detail}</li>)}</ul>}</article>)}
+          </div>
+        </details>}
+
+        {diagnostics && <details className="monitor-disclosure">
+          <summary><div><strong>系统诊断</strong><span>仅在排障时查看的连通性与内部检测结果</span></div><em className={healthTone(diagnostics.status)}>{healthStatusLabel(diagnostics.status)}</em><ChevronRight size={18} /></summary>
+          <div className="monitor-detail-body config-detail-list">
+            {diagnostics.items.map((item) => <article className="monitor-config-row" key={item.key}><div><strong>{item.label}</strong><span>{item.message}</span></div><em className={healthTone(item.status)}>{item.latencyMs === null ? healthStatusLabel(item.status) : formatDuration(item.latencyMs)}</em>{item.details.length > 0 && <ul>{item.details.map((detail, index) => <li key={index}>{detail}</li>)}</ul>}</article>)}
+          </div>
+        </details>}
+
+        <details className="monitor-disclosure">
+          <summary><div><strong>文档任务</strong><span>解析进度、失败任务和重试日志</span></div><em className={pendingTaskCount > 0 ? "warning" : "success"}>{pendingTaskCount > 0 ? `${pendingTaskCount} 条待处理` : "全部完成"}</em><ChevronRight size={18} /></summary>
+          <div className="monitor-detail-body monitor-task-list">
+            {tasks.length === 0 && <div className="monitor-empty">暂无文档任务</div>}
+            {tasks.map((task) => <article className="monitor-task-row" key={task.id}><div><strong>{task.fileName}</strong><span>{statusLabel(task.status)} · {task.chunkCount} 个切片 · {formatDateTime(task.updatedAt)}</span>{task.queueErrorMsg && <small>{task.queueErrorMsg}</small>}</div><button onClick={() => showLogs(task.id)}>查看日志</button></article>)}
+            {logs.length > 0 && <div className="monitor-log-list"><div className="monitor-log-title"><strong>任务日志</strong><button onClick={() => setLogs([])}>关闭</button></div>{logs.map((log) => <article key={log.id}><div><strong>{taskTypeLabel(log.taskType)}</strong><span>{log.message}</span></div><em>{taskStatusLabel(log.status)} · {formatDuration(log.durationMs)}</em></article>)}</div>}
+          </div>
+        </details>
+      </div>
     </div>
   );
+}
+
+function MonitorSummary({ label, value, hint, tone = "normal" }: { label: string; value: string | number; hint: string; tone?: "normal" | "warning" }) {
+  return <article className={"monitor-summary-item " + tone}><span>{label}</span><strong>{value}</strong><small>{hint}</small></article>;
 }
 
 function AdminStage() {
