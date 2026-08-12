@@ -290,8 +290,9 @@ function Workspace({ user, onLogout }: { user: CurrentUser; onLogout: () => void
       </aside>
 
       <aside className="sidebar knowledge-context">
-        <div className="context-heading">
-          <div><span>ENTERPRISE KNOWLEDGE</span><strong>你的知识工作区</strong></div>
+        <div className="context-heading context-brand">
+          <span className="context-brand-mark"><Bot size={19} /></span>
+          <div><strong>企业知识库</strong><small>可信知识工作台</small></div>
         </div>
         <button className="active-scope" type="button" onClick={() => setSettingsOpen(true)} disabled={!selected}>
           <div className="scope-monogram" aria-hidden="true"><BookOpen size={19} /></div>
@@ -300,14 +301,25 @@ function Workspace({ user, onLogout }: { user: CurrentUser; onLogout: () => void
         </button>
         <button className="new-conversation" onClick={() => setTab("chat")}><Plus size={18} />开始新对话</button>
         <button className="create-knowledge-base" onClick={createKnowledgeBase} disabled={saving}><BookOpen size={16} />{saving ? "正在创建..." : "新建知识库"}</button>
-        <div className="context-section-title"><span>RECENT KNOWLEDGE</span><small>{knowledgeBases.length}</small></div>
+        <nav className="sidebar-navigation" aria-label="工作区导航">
+          <button className={tab === "chat" ? "active" : ""} onClick={() => setTab("chat")}><MessageSquareText size={18} /><span>知识问答</span></button>
+          <button className={tab === "documents" ? "active" : ""} onClick={() => setTab("documents")}><FileText size={18} /><span>文档库</span></button>
+          <button className={tab === "tasks" ? "active" : ""} onClick={() => setTab("tasks")}><Check size={18} /><span>任务中心</span></button>
+          {user.role === "ADMIN" && <button className={tab === "monitor" ? "active" : ""} onClick={() => setTab("monitor")}><Database size={18} /><span>系统状态</span></button>}
+          {user.role === "ADMIN" && <button className={tab === "rag" ? "active" : ""} onClick={() => setTab("rag")}><Bot size={18} /><span>RAG 配置</span></button>}
+          {user.role === "ADMIN" && <button className={tab === "admin" ? "active" : ""} onClick={() => setTab("admin")}><ShieldCheck size={18} /><span>系统管理</span></button>}
+        </nav>
+        <div className="context-section-title"><span>知识库</span><small>{knowledgeBases.length}</small></div>
         <div className="search-box"><Search size={16} /><input value={kbQuery} onChange={(event) => setKbQuery(event.target.value)} placeholder="搜索知识库" /></div>
         <div className="kb-list">
           {loading && <div className="muted-row"><Loader2 className="spin" size={16} />正在加载...</div>}
           {!loading && knowledgeBases.length === 0 && <button className="empty-kb" onClick={createKnowledgeBase}>创建第一个知识库</button>}
           {filtered.map((item) => <button key={item.id} className={"kb-item " + (selected?.id === item.id ? "active" : "")} onClick={() => setSelectedId(item.id)}><BookOpen size={17} /><span>{item.name}</span><em className={"kb-role role-" + item.accessRole.toLowerCase()}>{roleLabel(item.accessRole)}</em><ChevronRight size={15} /></button>)}
         </div>
-        <button className="manage-scope" onClick={() => setSettingsOpen(true)} disabled={!selected}><Settings size={17} /><span><strong>知识空间管理</strong><small>文档、成员与任务状态</small></span><ChevronRight size={15} /></button>
+        <div className="sidebar-footer">
+          <button className="manage-scope" onClick={() => setSettingsOpen(true)} disabled={!selected}><Settings size={17} /><span><strong>知识空间管理</strong><small>文档、成员与权限</small></span><ChevronRight size={15} /></button>
+          <div className="sidebar-account"><button onClick={() => setProfileOpen(true)}><span>{user.username.slice(0, 1).toUpperCase()}</span><strong>{user.username}</strong></button><button className="sidebar-logout" onClick={onLogout} title="退出登录"><LogOut size={16} /></button></div>
+        </div>
       </aside>
 
       <section className="main-panel">
@@ -767,6 +779,10 @@ function ChatStage({ selected, canDebug = false }: { selected: KnowledgeBase | n
 
   return (
     <div className="chat-stage">
+      <header className="workspace-page-head chat-page-head">
+        <div><h2>知识问答</h2><p>基于当前知识库生成可追溯、有依据的回答。</p></div>
+        <span className="scope-safety"><ShieldCheck size={15} />知识来源：{selected?.name ?? "未选择知识库"}</span>
+      </header>
       <form className={"ask-box " + (answer ? "follow-up" : "first-question")} onSubmit={ask}>
         {!answer && <div className="ask-head">
           <div>
@@ -785,6 +801,9 @@ function ChatStage({ selected, canDebug = false }: { selected: KnowledgeBase | n
           {canDebug && !answer && <button type="button" className="admin-debug-action" onClick={runDebug} disabled={!selected || loading || !question.trim()}><ShieldCheck size={16} />管理员诊断</button>}
         </div>
       </form>
+      {!answer && <div className="question-suggestions" aria-label="推荐问题">
+        {["这份知识库包含哪些主题？", "总结最重要的知识点", "给我一组面试复习问题"].map((item) => <button type="button" key={item} onClick={() => setQuestion(item)}>{item}</button>)}
+      </div>}
       {error && <div className="inline-error">{error}</div>}
       {answer && (
         <section className="answer-layout" ref={answerRef}>
@@ -888,33 +907,33 @@ function RagStage({ selected }: { selected: KnowledgeBase | null }) {
   }
 
   return (
-    <div className="rag-stage">
+    <div className="rag-stage strategy-stage">
+      <header className="workspace-page-head">
+        <div><h2>问答策略</h2><p>控制答案如何检索、引用与表达。</p></div>
+        <button className="primary-action compact" type="submit" form="rag-preference-form" disabled={saving}>保存配置</button>
+      </header>
       {error && <div className="inline-error">{error}</div>}
       {message && <div className="success-banner">{message}</div>}
-      <form className="settings-panel" onSubmit={savePreference}>
-        <div className="panel-title"><Bot size={18} /><span>RAG 偏好设置</span></div>
-        <label><span>默认回答风格</span><select value={preference.defaultAnswerStyle} onChange={(event) => setPreference({ ...preference, defaultAnswerStyle: event.target.value as AnswerStyle })}><option value="STRICT">严谨模式</option><option value="BRIEF">简洁模式</option><option value="INTERVIEW">面试模式</option></select></label>
-        <label><span>召回数量 Top K</span><input type="number" min={1} max={20} value={preference.defaultTopK} onChange={(event) => setPreference({ ...preference, defaultTopK: Number(event.target.value) })} /></label>
-        <label><span>向量权重</span><input type="number" step="0.05" min={0} max={1} value={preference.vectorWeight} onChange={(event) => setPreference({ ...preference, vectorWeight: Number(event.target.value) })} /></label>
-        <label className="check-row"><input type="checkbox" checked={preference.enableModel} onChange={(event) => setPreference({ ...preference, enableModel: event.target.checked })} /><span>启用大模型回答</span></label>
-        <label className="check-row"><input type="checkbox" checked={preference.enableCache} onChange={(event) => setPreference({ ...preference, enableCache: event.target.checked })} /><span>启用 Redis 缓存</span></label>
-        <div className="editor-actions"><button className="primary-action compact" type="submit" disabled={saving}>保存设置</button><button type="button" onClick={clearCache} disabled={!selected}>清理缓存</button></div>
+      <form id="rag-preference-form" className="strategy-grid" onSubmit={savePreference}>
+        <section className="strategy-panel">
+          <header><h3>检索策略</h3><p>决定从知识库中如何检索最相关的内容。</p></header>
+          <div className="strategy-control"><div><strong>检索范围</strong><span>回答仅使用当前有权限的知识库</span></div><em>当前知识库</em></div>
+          <label className="strategy-control strategy-range"><div><strong>召回数量</strong><span>提供给回答的候选内容数量</span></div><input type="range" min={1} max={20} value={preference.defaultTopK} onChange={(event) => setPreference({ ...preference, defaultTopK: Number(event.target.value) })} /><em>{preference.defaultTopK} 片段</em></label>
+          <label className="strategy-control"><div><strong>相关度要求</strong><span>在覆盖面与准确性之间取得平衡</span></div><select value={preference.vectorWeight} onChange={(event) => setPreference({ ...preference, vectorWeight: Number(event.target.value) })}><option value="0.4">宽松</option><option value="0.6">均衡</option><option value="0.8">严格</option></select></label>
+          <div className="strategy-control"><div><strong>无结果时</strong><span>未检索到相关内容时的处理方式</span></div><em>明确告知未找到</em></div>
+        </section>
+        <section className="strategy-panel">
+          <header><h3>回答方式</h3><p>控制答案的表达风格与引用方式。</p></header>
+          <div className="strategy-control strategy-style"><div><strong>回答语气</strong><span>选择默认的答案风格</span></div><div>{([['BRIEF','精炼'],['STRICT','标准'],['INTERVIEW','详细']] as const).map(([value,label]) => <button type="button" className={preference.defaultAnswerStyle === value ? "active" : ""} key={value} onClick={() => setPreference({ ...preference, defaultAnswerStyle: value })}>{label}</button>)}</div></div>
+          <label className="strategy-control"><div><strong>引用来源</strong><span>在答案中始终保留可核对的依据</span></div><input type="checkbox" checked={preference.enableModel} onChange={(event) => setPreference({ ...preference, enableModel: event.target.checked })} /></label>
+          <div className="answer-preview"><span>回答预览</span><p>系统会优先依据当前知识库组织答案，并在关键结论后附上可核对的来源。</p><div><small>[1] 当前知识库文档</small><small>[2] 已授权参考内容</small></div></div>
+        </section>
       </form>
-      <form className="settings-panel" onSubmit={saveTemplate}>
-        <div className="panel-title"><FileText size={18} /><span>Prompt 模板</span></div>
-        <label><span>模板名称</span><input value={template.name} onChange={(event) => setTemplate({ ...template, name: event.target.value })} /></label>
-        <label><span>系统提示词</span><textarea value={template.systemPrompt} onChange={(event) => setTemplate({ ...template, systemPrompt: event.target.value })} /></label>
-        <button className="primary-action compact" type="submit" disabled={!selected || saving}>新增模板</button>
-        {templates.map((item) => <article className="template-row" key={item.id}><strong>{item.name}</strong><span>{answerStyleLabel(item.answerStyle)}</span></article>)}
-      </form>
-      <QualityPanel
-        overview={qualityOverview}
-        issues={qualityIssues}
-        filter={qualityFilter}
-        loading={qualityLoading}
-        onFilterChange={loadQuality}
-        onRefresh={() => loadQuality(qualityFilter)}
-      />
+      <div className="strategy-disclosures">
+        <details><summary><div><strong>高级检索参数（管理员）</strong><span>缓存、模型开关与内部检索行为</span></div><ChevronRight size={17} /></summary><div className="strategy-detail"><label className="check-row"><input type="checkbox" checked={preference.enableCache} onChange={(event) => setPreference({ ...preference, enableCache: event.target.checked })} /><span>启用回答缓存</span></label><button type="button" onClick={clearCache} disabled={!selected}>清理当前知识库缓存</button></div></details>
+        <details><summary><div><strong>提示词模板</strong><span>{templates.length} 个已保存模板</span></div><ChevronRight size={17} /></summary><form className="strategy-detail template-editor" onSubmit={saveTemplate}><label><span>模板名称</span><input value={template.name} onChange={(event) => setTemplate({ ...template, name: event.target.value })} /></label><label><span>系统提示词</span><textarea value={template.systemPrompt} onChange={(event) => setTemplate({ ...template, systemPrompt: event.target.value })} /></label><button className="primary-action compact" type="submit" disabled={!selected || saving}>新增模板</button>{templates.map((item) => <article className="template-row" key={item.id}><strong>{item.name}</strong><span>{answerStyleLabel(item.answerStyle)}</span></article>)}</form></details>
+        <details><summary><div><strong>调试与评估</strong><span>回答质量、反馈覆盖与异常记录</span></div><ChevronRight size={17} /></summary><QualityPanel overview={qualityOverview} issues={qualityIssues} filter={qualityFilter} loading={qualityLoading} onFilterChange={loadQuality} onRefresh={() => loadQuality(qualityFilter)} /></details>
+      </div>
     </div>
   );
 }
@@ -1080,17 +1099,17 @@ function TaskCenterStage() {
 
   return (
     <div className="task-center-stage">
+      <header className="workspace-page-head"><div><h2>任务中心</h2><p>跟踪文档解析进度，并处理需要人工关注的任务。</p></div><button type="button" onClick={loadTasks} disabled={loading}>{loading ? <Loader2 className="spin" size={15} /> : null}刷新任务</button></header>
       {error && <div className="inline-error">{error}</div>}
       <div className="task-summary-grid">
-        <TaskMetric label="任务总数" value={summary.total} />
-        <TaskMetric label="等待中" value={summary.pending} tone="pending" />
+        <TaskMetric label="全部任务" value={summary.total} />
         <TaskMetric label="运行中" value={summary.running} tone="running" />
-        <TaskMetric label="已完成" value={summary.done} tone="done" />
-        <TaskMetric label="需处理" value={summary.review} tone="review" />
+        <TaskMetric label="等待中" value={summary.pending} tone="pending" />
+        <TaskMetric label="失败 / 需处理" value={summary.failed + summary.review} tone="review" />
       </div>
       <section className="task-center-panel">
         <div className="task-center-head">
-          <div><h3>任务中心</h3><p>跟踪文档解析、队列状态、失败重试与任务日志。</p></div>
+          <div><h3>文档处理任务</h3><p>默认仅展示可行动的信息，详细日志按需查看。</p></div>
           <div className="task-center-actions">
             <button type="button" onClick={retrySelected} disabled={operatingId === "batch" || selectedIds.length === 0}>{operatingId === "batch" ? <Loader2 className="spin" size={15} /> : null}重试选中</button>
             <button type="button" onClick={loadTasks} disabled={loading}>{loading ? <Loader2 className="spin" size={15} /> : null}刷新</button>
@@ -1100,6 +1119,7 @@ function TaskCenterStage() {
           {["ALL", "PENDING", "RUNNING", "DONE", "FAILED", "NEEDS_REVIEW"].map((item) => <button type="button" key={item} className={status === item ? "active" : ""} onClick={() => setStatus(item)}>{taskStatusLabel(item)}</button>)}
         </div>
         <div className="task-table">
+          <div className="task-table-head"><span>文档</span><span>当前阶段</span><span>状态</span><span>更新时间</span><span>操作</span></div>
           {loading && <div className="muted-document"><Loader2 className="spin" size={18} />正在加载任务...</div>}
           {!loading && tasks.length === 0 && <div className="muted-document">暂无任务</div>}
           {tasks.map((task) => {
@@ -1110,11 +1130,12 @@ function TaskCenterStage() {
                 <label className="task-check"><input type="checkbox" checked={selectedIds.includes(task.id)} onChange={() => toggleSelected(task.id)} disabled={!retryable} /></label>
                 <div className="task-main">
                   <strong>{task.fileName}</strong>
-                  <span>{taskStatusLabel(normalized)} | {task.chunkCount} 个切片 | 更新于 {formatDateTime(task.updatedAt)}</span>
-                  <small>{task.queueStatus ? `队列 ${queueStatusLabel(task.queueStatus)} | 重试 ${task.queueRetryCount ?? 0} | 可执行时间 ${formatDateTime(task.queueAvailableAt)}` : "暂未进入队列"}</small>
+                  <span>{task.chunkCount > 0 ? `${task.chunkCount} 个切片` : "等待生成切片"}</span>
                   {(task.errorMsg || task.queueErrorMsg) && <p>{task.errorMsg ?? task.queueErrorMsg}</p>}
                 </div>
+                <span className="task-stage-label">{normalized === "RUNNING" ? "解析与生成向量" : normalized === "DONE" ? "处理完成" : normalized === "PENDING" ? "等待处理" : "需要人工处理"}</span>
                 <em className={taskStatusTone(normalized)}>{taskStatusLabel(normalized)}</em>
+                <time>{formatDateTime(task.updatedAt)}</time>
                 <div className="task-row-actions">
                   <button type="button" onClick={() => openLogs(task)}>日志</button>
                   <button type="button" onClick={() => retryTask(task)} disabled={!retryable || operatingId === task.id}>{operatingId === task.id ? <Loader2 className="spin" size={14} /> : null}重试</button>
@@ -1164,7 +1185,7 @@ function MonitorStage() {
   return (
     <div className="monitor-stage monitor-console">
       <header className="monitor-console-head">
-        <div><span>ADMIN · SYSTEM STATUS</span><h2>运行监控</h2><p>先看结论，需要排查时再展开内部详情。</p></div>
+        <div><span>ADMIN · SYSTEM STATUS</span><h2>系统状态</h2><p>先看结论，需要排查时再展开内部详情。</p></div>
         <div className="monitor-head-actions">
           {health && <div className={"monitor-health-chip " + healthTone(health.status)}><i />{healthStatusLabel(health.status)}{unhealthyCount > 0 ? ` · ${unhealthyCount} 项异常` : ""}</div>}
           <button onClick={loadMonitor} disabled={loading}>{loading ? <Loader2 className="spin" size={16} /> : null}刷新</button>
@@ -1173,19 +1194,19 @@ function MonitorStage() {
       {error && <div className="inline-error">{error}</div>}
 
       <section className="monitor-summary" aria-label="系统摘要">
-        <MonitorSummary label="知识库" value={overview?.knowledgeBaseCount ?? 0} hint="可用知识空间" />
-        <MonitorSummary label="文档" value={overview?.documentCount ?? 0} hint={`${overview?.failedDocumentCount ?? 0} 份需关注`} tone={(overview?.failedDocumentCount ?? 0) > 0 ? "warning" : "normal"} />
-        <MonitorSummary label="问答" value={metrics?.qaCount ?? 0} hint="今日请求" />
-        <MonitorSummary label="平均响应" value={formatDuration(metrics?.averageLatencyMs)} hint="今日平均" />
-        <MonitorSummary label="模型成功率" value={metrics ? `${Math.round(metrics.modelSuccessRate)}%` : "-"} hint="今日模型调用" />
+        <MonitorSummary label="服务健康" value={health ? `${health.components.length - unhealthyCount}/${health.components.length}` : "-"} hint={unhealthyCount > 0 ? `${unhealthyCount} 项异常` : "全部正常"} tone={unhealthyCount > 0 ? "warning" : "normal"} />
         <MonitorSummary label="待处理任务" value={pendingTaskCount} hint={`共 ${tasks.length} 条任务`} tone={pendingTaskCount > 0 ? "warning" : "normal"} />
+        <MonitorSummary label="今日问答" value={metrics?.qaCount ?? 0} hint="已完成请求" />
+        <MonitorSummary label="文档覆盖" value={overview?.documentCount ?? 0} hint={`${overview?.knowledgeBaseCount ?? 0} 个知识库`} />
+        <MonitorSummary label="异常提醒" value={Number(overview?.failedDocumentCount ?? 0) + unhealthyCount} hint="需要关注" tone={Number(overview?.failedDocumentCount ?? 0) + unhealthyCount > 0 ? "warning" : "normal"} />
+        <MonitorSummary label="平均响应" value={formatDuration(metrics?.averageLatencyMs)} hint="今日平均" />
       </section>
 
       <div className="monitor-disclosures">
-        {health && <details className="monitor-disclosure">
+        {health && <details className="monitor-disclosure monitor-primary-disclosure" open>
           <summary><div><strong>服务健康</strong><span>数据库、缓存、模型与向量库连接状态</span></div><em className={healthTone(health.status)}>{healthStatusLabel(health.status)}</em><ChevronRight size={18} /></summary>
           <div className="monitor-detail-body health-detail-grid">
-            {health.components.map((component) => <article className="monitor-service-row" key={component.name}><i className={healthTone(component.status)} /><div><strong>{componentLabel(component.name)}</strong><span>{component.message}</span></div><em>{component.latencyMs === null ? healthStatusLabel(component.status) : formatDuration(component.latencyMs)}</em></article>)}
+            {health.components.map((component) => <article className="monitor-service-row" key={component.name}><i className={healthTone(component.status)} /><div><strong>{componentLabel(component.name)}</strong><span>{componentHealthSummary(component.name, component.status)}</span></div><em>{healthStatusLabel(component.status)}</em></article>)}
           </div>
         </details>}
 
@@ -1203,7 +1224,7 @@ function MonitorStage() {
           </div>
         </details>}
 
-        <details className="monitor-disclosure">
+        <details className="monitor-disclosure monitor-primary-disclosure" open>
           <summary><div><strong>文档任务</strong><span>解析进度、失败任务和重试日志</span></div><em className={pendingTaskCount > 0 ? "warning" : "success"}>{pendingTaskCount > 0 ? `${pendingTaskCount} 条待处理` : "全部完成"}</em><ChevronRight size={18} /></summary>
           <div className="monitor-detail-body monitor-task-list">
             {tasks.length === 0 && <div className="monitor-empty">暂无文档任务</div>}
@@ -1296,11 +1317,13 @@ function AdminStage() {
 
   return (
     <div className="admin-stage">
+      <header className="workspace-page-head"><div><h2>系统管理</h2><p>管理成员、权限与平台安全。</p></div></header>
+      <div className="admin-tabs"><button className="active">成员与权限</button><button disabled>知识库治理</button><button disabled>安全与审计</button></div>
       {error && <div className="inline-error">{error}</div>}
-      {overview && <div className="stats-grid"><StatusBar label="用户总数" value={overview.totalCount} percent={100} tone="synced" /><StatusBar label="已启用" value={overview.enabledCount} percent={100} tone="partial" /><StatusBar label="已禁用" value={overview.disabledCount} percent={100} tone="pending" /><StatusBar label="管理员" value={overview.adminCount} percent={100} tone="fallback" /></div>}
+      {overview && <div className="stats-grid"><StatusBar label="成员" value={overview.totalCount} percent={100} tone="synced" /><StatusBar label="管理员" value={overview.adminCount} percent={100} tone="fallback" /><StatusBar label="已启用" value={overview.enabledCount} percent={100} tone="partial" /><StatusBar label="已禁用" value={overview.disabledCount} percent={100} tone="pending" /></div>}
       <section className="admin-panel">
         <div className="admin-panel-head">
-          <div><h3>用户管理</h3><p>检索用户、禁用风险账号并重置密码。</p></div>
+          <div><h3>成员管理</h3><p>检索成员、调整账号状态并处理权限。</p></div>
           <button type="button" onClick={loadAdmin} disabled={loading}>{loading ? <Loader2 className="spin" size={15} /> : null}刷新</button>
         </div>
         <div className="admin-toolbar">
@@ -1311,14 +1334,16 @@ function AdminStage() {
           </select>
         </div>
         <div className="admin-user-list">
-          {users.map((item) => <article className="admin-user-row" key={item.userId}><div><strong>{item.username}</strong><span>{appRoleLabel(item.role)} | {item.enabled ? "已启用" : "已禁用"} | 最近登录 {item.lastLoginAt ? formatDateTime(item.lastLoginAt) : "-"}</span></div><div className="admin-row-actions"><button onClick={() => resetPassword(item)} disabled={resettingId === item.userId}>{resettingId === item.userId ? <Loader2 className="spin" size={14} /> : null}重置密码</button><button onClick={() => toggleUser(item)}>{item.enabled ? "禁用" : "启用"}</button></div></article>)}
+          <div className="admin-user-head"><span>成员</span><span>角色</span><span>账号状态</span><span>最后活跃</span><span>操作</span></div>
+          {users.map((item) => <article className="admin-user-row" key={item.userId}><div className="admin-user-identity"><i>{item.username.slice(0,1).toUpperCase()}</i><strong>{item.username}</strong></div><em>{appRoleLabel(item.role)}</em><span className={item.enabled ? "enabled" : "disabled"}>{item.enabled ? "已启用" : "已禁用"}</span><time>{item.lastLoginAt ? formatDateTime(item.lastLoginAt) : "-"}</time><div className="admin-row-actions"><button onClick={() => resetPassword(item)} disabled={resettingId === item.userId}>{resettingId === item.userId ? <Loader2 className="spin" size={14} /> : null}重置密码</button><button className={!item.enabled ? "enable-action" : ""} onClick={() => toggleUser(item)}>{item.enabled ? "禁用" : "启用"}</button></div></article>)}
         </div>
       </section>
-      <section className="admin-panel">
-        <div className="admin-panel-head">
+      <details className="admin-panel admin-audit-disclosure">
+        <summary className="admin-panel-head">
           <div><h3>审计日志</h3><p>查看登录尝试与管理员操作记录。</p></div>
-          <button type="button" onClick={refreshLogs} disabled={loading}>{loading ? <Loader2 className="spin" size={15} /> : null}刷新日志</button>
-        </div>
+          <ChevronRight size={18} />
+        </summary>
+        <div className="admin-audit-body"><button type="button" onClick={refreshLogs} disabled={loading}>{loading ? <Loader2 className="spin" size={15} /> : null}刷新日志</button>
         <div className="admin-toolbar">
           <select value={loginSuccess} onChange={(event) => setLoginSuccess(event.target.value as "ALL" | "SUCCESS" | "FAILED")}>
             <option value="ALL">全部登录</option>
@@ -1346,7 +1371,8 @@ function AdminStage() {
             {operationLogs.map((item) => <article className="audit-row" key={item.id}><div><strong>{adminActionLabel(item.action)}</strong><span>{item.adminUsername ?? "-"} {"->"} {item.targetUsername ?? "-"} | {formatDateTime(item.createdAt)}</span>{item.detail && <small>{item.detail}</small>}</div><em>{resultLabel(item.result)}</em></article>)}
           </div>
         </div>
-      </section>
+        </div>
+      </details>
     </div>
   );
 }
@@ -1484,7 +1510,24 @@ function percent(value: number, total: number) { if (total <= 0) return 0; retur
 function formatScore(value: number | undefined) { return typeof value === "number" ? value.toFixed(3) : "-"; }
 function healthTone(status: string) { const value = normalizeCode(status); return value === "UP" || value === "OK" || value === "SUCCESS" ? "success" : value === "WARN" || value === "WARNING" ? "warning" : "danger"; }
 function healthStatusLabel(status?: string | null) { const labels: Record<string, string> = { UP: "正常", OK: "正常", SUCCESS: "成功", DOWN: "异常", ERROR: "错误", FAILED: "失败", WARN: "告警", WARNING: "告警", DISABLED: "未启用", ENABLED: "已启用", MISSING: "缺失", READY: "就绪" }; return status ? labels[normalizeCode(status)] ?? status : "-"; }
-function componentLabel(name: string) { const labels: Record<string, string> = { database: "数据库", redis: "Redis", embedding: "Embedding 模型", chat: "对话模型", vector: "向量库" }; return labels[name] ?? name; }
+function componentLabel(name: string) { const key = normalizeCode(name); const labels: Record<string, string> = { DATABASE: "数据库", MYSQL: "数据库", REDIS: "缓存服务", EMBEDDING: "内容索引", EMBEDDING_MODEL: "内容索引", CHAT: "AI 服务", CHAT_MODEL: "AI 服务", VECTOR: "向量索引", VECTOR_STORE: "向量索引", RAG_CACHE: "回答缓存", RATE_LIMIT: "访问保护" }; return labels[key] ?? name; }
+function componentHealthSummary(name: string, status?: string | null) {
+  if (healthTone(status) !== "success") return "当前状态异常，建议管理员展开诊断详情。";
+  const summaries: Record<string, string> = {
+    DATABASE: "连接正常，数据读写可用",
+    MYSQL: "连接正常，数据读写可用",
+    REDIS: "缓存服务运行稳定",
+    EMBEDDING: "文档内容可正常建立索引",
+    EMBEDDING_MODEL: "文档内容可正常建立索引",
+    CHAT: "知识问答服务可用",
+    CHAT_MODEL: "知识问答服务可用",
+    VECTOR: "检索索引连接正常",
+    VECTOR_STORE: "检索索引连接正常",
+    RAG_CACHE: "回答缓存策略运行正常",
+    RATE_LIMIT: "访问保护策略已启用"
+  };
+  return summaries[normalizeCode(name)] ?? "服务运行正常";
+}
 function adminActionLabel(action: string) {
   const labels: Record<string, string> = { UPDATE_USER: "更新用户", RESET_PASSWORD: "重置密码", DISABLE_USER: "禁用用户", ENABLE_USER: "启用用户" };
   return labels[normalizeCode(action)] ?? action;
