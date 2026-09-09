@@ -1,6 +1,8 @@
 # 企业知识库 RAG 问答系统
 
-面向企业私有文档的全栈 RAG 知识工作台。系统以“先回答、再核验”为核心体验，将知识范围、可信引用与日常协作放在主界面，把检索分数、模型配置、缓存和运行诊断收进管理员区域；同时覆盖文档入库、异步解析、混合检索、流式问答、质量评测与 Docker 生产部署。
+一个面向团队私有知识的企业级全栈 RAG 问答平台。它不仅完成“上传文档—解析切片—向量检索—生成答案”的基础链路，还把知识权限、可信引用、质量评测、任务治理和运行诊断整合进同一套可部署的知识工作台。
+
+产品以“先回答、再核验”为核心体验：普通用户专注于选择知识范围、提问和查验来源；内容管理员负责文档、成员与索引质量；系统管理员则通过独立控制台管理模型、缓存、任务和服务健康状态。项目可使用本地降级能力快速体验，也可接入 OpenAI-compatible Chat、Embedding API 与 pgvector 运行完整生产链路。
 
 <p>
   <img alt="Java 21" src="https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white">
@@ -9,7 +11,15 @@
   <img alt="Redis" src="https://img.shields.io/badge/Redis-Cache_%26_Lock-DC382D?logo=redis&logoColor=white">
   <img alt="pgvector" src="https://img.shields.io/badge/PostgreSQL-pgvector-4169E1?logo=postgresql&logoColor=white">
   <img alt="Docker" src="https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white">
+  <a href="https://github.com/20030713/knowledge-rag/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/20030713/knowledge-rag/actions/workflows/ci.yml/badge.svg"></a>
 </p>
+
+## 项目定位
+
+- **可信问答入口**：流式生成答案，同时保留文档级引用与原文证据，帮助用户判断答案是否可信。
+- **团队知识治理**：支持多知识库、成员协作、四级 RBAC 权限、备份迁移与知识范围隔离。
+- **可调优 RAG 工程**：支持知识库级切片参数、混合召回、Prompt 模板、检索诊断和批量质量评测。
+- **可落地部署**：提供 React + Spring Boot 前后端、MySQL、Redis、pgvector、Docker Compose、健康检查与自动化 CI。
 
 ## 界面预览
 
