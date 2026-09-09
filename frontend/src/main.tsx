@@ -70,20 +70,19 @@ import {
   TodayMetrics,
   UserProfile
 } from "./api";
+import { clearLegacyCredentials, loadRememberedUsername, persistRememberedUsername } from "./authStorage";
 import "./styles.css";
 
 type AuthMode = "login" | "register";
 type WorkspaceTab = "documents" | "chat" | "rag" | "tasks" | "monitor" | "admin";
 type DocumentStatusFilter = "ALL" | "UPLOADED" | "PARSING" | "COMPLETED" | "FAILED";
 
-const LAST_USERNAME_KEY = "knowledge-rag-last-username";
-const LAST_PASSWORD_KEY = "knowledge-rag-last-password";
-const REMEMBER_PASSWORD_KEY = "knowledge-rag-remember-password";
-
 function App() {
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [booting, setBooting] = useState(true);
   const [authMessage, setAuthMessage] = useState("");
+
+  useEffect(() => clearLegacyCredentials(), []);
 
   useEffect(() => {
     function onExpired(event: Event) {
@@ -123,9 +122,9 @@ function App() {
 
 function AuthScreen({ initialError = "", onAuthed }: { initialError?: string; onAuthed: (user: CurrentUser) => void }) {
   const [mode, setMode] = useState<AuthMode>("login");
-  const [username, setUsername] = useState(() => localStorage.getItem(LAST_USERNAME_KEY) ?? "demo_user");
-  const [rememberPassword, setRememberPassword] = useState(() => localStorage.getItem(REMEMBER_PASSWORD_KEY) === "true");
-  const [password, setPassword] = useState(() => localStorage.getItem(REMEMBER_PASSWORD_KEY) === "true" ? localStorage.getItem(LAST_PASSWORD_KEY) ?? "123456" : "123456");
+  const [username, setUsername] = useState(loadRememberedUsername);
+  const [rememberUsername, setRememberUsername] = useState(() => username.length > 0);
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(initialError);
 
@@ -139,14 +138,7 @@ function AuthScreen({ initialError = "", onAuthed }: { initialError?: string; on
       if (mode === "register") await api.register({ username, password });
       const login = await api.login({ username, password });
       setToken(login.token);
-      localStorage.setItem(LAST_USERNAME_KEY, login.username);
-      if (rememberPassword) {
-        localStorage.setItem(REMEMBER_PASSWORD_KEY, "true");
-        localStorage.setItem(LAST_PASSWORD_KEY, password);
-      } else {
-        localStorage.removeItem(REMEMBER_PASSWORD_KEY);
-        localStorage.removeItem(LAST_PASSWORD_KEY);
-      }
+      persistRememberedUsername(login.username, rememberUsername);
       onAuthed({ userId: login.userId, username: login.username, role: login.role });
     } catch (exception) {
       setError(exception instanceof Error ? exception.message : "操作失败");
@@ -174,7 +166,7 @@ function AuthScreen({ initialError = "", onAuthed }: { initialError?: string; on
         </div>
         <label><span>用户名</span><input value={username} onChange={(event) => setUsername(event.target.value)} minLength={3} maxLength={32} /></label>
         <label><span>密码</span><input value={password} onChange={(event) => setPassword(event.target.value)} type="password" minLength={6} maxLength={64} /></label>
-        <label className="check-row"><input type="checkbox" checked={rememberPassword} onChange={(event) => setRememberPassword(event.target.checked)} /><span>记住密码</span></label>
+        <label className="check-row"><input type="checkbox" checked={rememberUsername} onChange={(event) => setRememberUsername(event.target.checked)} /><span>记住用户名</span></label>
         {error && <div className="inline-error">{error}</div>}
         <button className="primary-action" type="submit" disabled={loading}>{loading ? <Loader2 className="spin" size={18} /> : <ShieldCheck size={18} />}{mode === "login" ? "进入工作台" : "创建账号"}</button>
       </form>
@@ -755,7 +747,7 @@ function DocumentStage({ selected }: { selected: KnowledgeBase | null }) {
           <div className="document-toolbar-actions">
             <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as DocumentStatusFilter)} aria-label="筛选文档状态">{["ALL", "UPLOADED", "PARSING", "COMPLETED", "FAILED"].map((status) => <option key={status} value={status}>{status === "ALL" ? "全部状态" : statusLabel(status as DocumentStatusFilter)}</option>)}</select>
             <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} aria-label="筛选文档类型"><option value="ALL">全部类型</option>{documentTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select>
-            <button className="document-refresh" onClick={loadDocuments} disabled={!selected || loading} aria-label="刷新文档">{loading ? <Loader2 className="spin" size={18} /> : <RefreshCw size={18} />}</button>
+            <button className="document-refresh" onClick={() => void loadDocuments()} disabled={!selected || loading} aria-label="刷新文档">{loading ? <Loader2 className="spin" size={18} /> : <RefreshCw size={18} />}</button>
           </div>
         </div>
         {error && <div className="inline-error">{error}</div>}
@@ -1445,7 +1437,7 @@ function AdminStage() {
   }
 
   async function resetPassword(user: AdminUser) {
-    const nextPassword = window.prompt(`请输入 ${user.username} 的新密码`, "123456");
+    const nextPassword = window.prompt(`请输入 ${user.username} 的新密码`);
     if (!nextPassword) return;
     setResettingId(user.userId);
     setError("");
@@ -1669,7 +1661,7 @@ function extractHighlightKeywords(question: string) {
 function escapeRegExp(value: string) { return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
 function percent(value: number, total: number) { if (total <= 0) return 0; return Math.max(0, Math.min(100, Math.round((value / total) * 100))); }
 function formatScore(value: number | undefined) { return typeof value === "number" ? value.toFixed(3) : "-"; }
-function healthTone(status: string) { const value = normalizeCode(status); return value === "UP" || value === "OK" || value === "SUCCESS" ? "success" : value === "WARN" || value === "WARNING" ? "warning" : "danger"; }
+function healthTone(status?: string | null) { const value = normalizeCode(status); return value === "UP" || value === "OK" || value === "SUCCESS" ? "success" : value === "WARN" || value === "WARNING" ? "warning" : "danger"; }
 function healthStatusLabel(status?: string | null) { const labels: Record<string, string> = { UP: "正常", OK: "正常", SUCCESS: "成功", DOWN: "异常", ERROR: "错误", FAILED: "失败", WARN: "告警", WARNING: "告警", DISABLED: "未启用", ENABLED: "已启用", MISSING: "缺失", READY: "就绪" }; return status ? labels[normalizeCode(status)] ?? status : "-"; }
 function componentLabel(name: string) { const key = normalizeCode(name); const labels: Record<string, string> = { DATABASE: "数据库", MYSQL: "数据库", REDIS: "缓存服务", EMBEDDING: "内容索引", EMBEDDING_MODEL: "内容索引", CHAT: "AI 服务", CHAT_MODEL: "AI 服务", VECTOR: "向量索引", VECTOR_STORE: "向量索引", RAG_CACHE: "回答缓存", RATE_LIMIT: "访问保护" }; return labels[key] ?? name; }
 function componentHealthSummary(name: string, status?: string | null) {

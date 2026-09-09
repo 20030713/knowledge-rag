@@ -6,10 +6,12 @@ import com.rag.knowledge.domain.entity.DocumentTaskQueue;
 import com.rag.knowledge.repository.DocumentTaskQueueMapper;
 import java.time.LocalDateTime;
 import java.util.List;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 @Component
+@ConditionalOnProperty(name = "app.document-task.worker-enabled", havingValue = "true", matchIfMissing = true)
 public class DocumentTaskQueueWorker {
 
     private static final int BATCH_SIZE = 2;

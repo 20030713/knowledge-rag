@@ -26,6 +26,8 @@ knife4j:
   enable: true
 
 app:
+  document-task:
+    worker-enabled: ${DOCUMENT_TASK_WORKER_ENABLED:true}
   jwt:
     secret: ${JWT_SECRET:knowledge-rag-demo-secret-key-must-be-at-least-32-bytes}
     expire-hours: ${JWT_EXPIRE_HOURS:24}
