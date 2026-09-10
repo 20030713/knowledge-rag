@@ -66,10 +66,15 @@ app:
     dimensions: ${EMBEDDING_MODEL_DIMENSIONS:1536}
   vector-search:
     top-k: 5
-    max-chunks-to-scan: 200
+    max-chunks-to-scan: 1000
     dimensions: 256
     vector-weight: 0.7
     keyword-weight: 0.3
+    candidate-multiplier: 5
+    min-relevance-score: 0.18
+    diversity-penalty: 0.12
+    semantic-confidence-score: 0.55
+    min-keyword-coverage: 0.25
   vector-store:
     pgvector:
       enabled: ${PGVECTOR_ENABLED:false}

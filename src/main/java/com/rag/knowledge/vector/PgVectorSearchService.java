@@ -1,6 +1,8 @@
 package com.rag.knowledge.vector;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.rag.knowledge.config.PgVectorProperties;
+import com.rag.knowledge.config.VectorSearchProperties;
 import com.rag.knowledge.domain.entity.DocumentChunk;
 import com.rag.knowledge.repository.DocumentChunkMapper;
 import java.sql.Connection;
@@ -10,12 +12,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
-import java.util.regex.Pattern;
+import java.util.LinkedHashSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -24,20 +24,24 @@ import org.springframework.stereotype.Service;
 public class PgVectorSearchService {
 
     private static final Logger log = LoggerFactory.getLogger(PgVectorSearchService.class);
-    private static final Pattern SPLIT_PATTERN = Pattern.compile("[\\s,.;:!?，。！？；：、（）()【】\\[\\]{}\"'`~|/\\\\<>]+");
-
     private final PgVectorProperties properties;
     private final TextEmbeddingService textEmbeddingService;
     private final DocumentChunkMapper documentChunkMapper;
+    private final VectorSearchProperties searchProperties;
+    private final KeywordScorer keywordScorer;
 
     public PgVectorSearchService(
             PgVectorProperties properties,
             TextEmbeddingService textEmbeddingService,
-            DocumentChunkMapper documentChunkMapper
+            DocumentChunkMapper documentChunkMapper,
+            VectorSearchProperties searchProperties,
+            KeywordScorer keywordScorer
     ) {
         this.properties = properties;
         this.textEmbeddingService = textEmbeddingService;
         this.documentChunkMapper = documentChunkMapper;
+        this.searchProperties = searchProperties;
+        this.keywordScorer = keywordScorer;
     }
 
     public boolean available() {
@@ -67,39 +71,60 @@ public class PgVectorSearchService {
         }
         long startedAt = System.nanoTime();
         long embeddingStartedAt = System.nanoTime();
-        double[] questionVector = textEmbeddingService.embed(question);
-        long embeddingMs = elapsedMillis(embeddingStartedAt);
-        if (questionVector.length != properties.safeDimensions()) {
-            log.warn("Question embedding dimension mismatch. expected={}, actual={}",
-                    properties.safeDimensions(), questionVector.length);
-            return List.of();
+        Map<Long, Double> vectorScores = Map.of();
+        long vectorQueryMs = 0;
+        try {
+            double[] questionVector = textEmbeddingService.embed(question);
+            if (questionVector.length == properties.safeDimensions()) {
+                long queryStartedAt = System.nanoTime();
+                vectorScores = loadCandidates(
+                        userId,
+                        kbId,
+                        textEmbeddingService.modelNamespace(),
+                        questionVector,
+                        topK
+                );
+                vectorQueryMs = elapsedMillis(queryStartedAt);
+            } else {
+                log.warn("Question embedding dimension mismatch. expected={}, actual={}",
+                        properties.safeDimensions(), questionVector.length);
+            }
+        } catch (RuntimeException exception) {
+            log.warn("Question embedding unavailable; continuing with BM25-only retrieval", exception);
         }
-
-        long queryStartedAt = System.nanoTime();
-        Map<Long, Double> vectorScores = loadCandidates(
-                userId,
-                kbId,
-                textEmbeddingService.modelNamespace(),
-                questionVector,
-                topK
-        );
-        long vectorQueryMs = elapsedMillis(queryStartedAt);
+        long embeddingMs = elapsedMillis(embeddingStartedAt);
         log.info("RAG retrieval timing kbId={}, embeddingMs={}, vectorQueryMs={}, totalMs={}",
                 kbId, embeddingMs, vectorQueryMs, elapsedMillis(startedAt));
-        if (vectorScores.isEmpty()) {
+        List<DocumentChunk> lexicalCorpus = documentChunkMapper.selectList(new LambdaQueryWrapper<DocumentChunk>()
+                .eq(DocumentChunk::getUserId, userId)
+                .eq(DocumentChunk::getKbId, kbId)
+                .orderByDesc(DocumentChunk::getCreatedAt)
+                .last("LIMIT " + searchProperties.safeMaxChunksToScan()));
+        Map<Long, Double> keywordScores = keywordScorer.score(lexicalCorpus, question);
+        int lexicalLimit = Math.max(topK, topK * searchProperties.safeCandidateMultiplier());
+        LinkedHashSet<Long> candidateIds = new LinkedHashSet<>(vectorScores.keySet());
+        keywordScores.entrySet().stream()
+                .sorted(Map.Entry.<Long, Double>comparingByValue().reversed())
+                .limit(lexicalLimit)
+                .map(Map.Entry::getKey)
+                .forEach(candidateIds::add);
+        if (candidateIds.isEmpty()) {
             return List.of();
         }
 
-        List<DocumentChunk> chunks = documentChunkMapper.selectBatchIds(vectorScores.keySet());
-        Set<String> terms = tokenize(question);
-        double maxKeywordScore = chunks.stream()
-                .mapToDouble(chunk -> keywordScore(chunk.getContent(), terms))
-                .max()
-                .orElse(0);
+        List<DocumentChunk> chunks = new ArrayList<>(documentChunkMapper.selectBatchIds(candidateIds));
+        double maxKeywordScore = keywordScores.values().stream().mapToDouble(Double::doubleValue).max().orElse(0);
+        Map<Long, Double> resolvedVectorScores = vectorScores;
 
         return chunks.stream()
-                .filter(chunk -> vectorScores.containsKey(chunk.getId()))
-                .map(chunk -> scoreChunk(chunk, vectorScores.get(chunk.getId()), terms, maxKeywordScore, vectorWeight, keywordWeight))
+                .map(chunk -> scoreChunk(
+                        chunk,
+                        resolvedVectorScores.getOrDefault(chunk.getId(), 0.0),
+                        keywordScores.getOrDefault(chunk.getId(), 0.0),
+                        maxKeywordScore,
+                        vectorWeight,
+                        keywordWeight
+                ))
                 .filter(result -> result.finalScore() > 0)
                 .sorted(Comparator.comparingDouble(VectorSearchResult::finalScore).reversed()
                         .thenComparing(result -> result.chunk().getChunkNo()))
@@ -147,70 +172,17 @@ public class PgVectorSearchService {
     private VectorSearchResult scoreChunk(
             DocumentChunk chunk,
             double vectorScore,
-            Set<String> terms,
+            double rawKeywordScore,
             double maxKeywordScore,
             double vectorWeight,
             double keywordWeight
     ) {
-        double rawKeywordScore = keywordScore(chunk.getContent(), terms);
         double normalizedKeywordScore = maxKeywordScore <= 0 ? 0 : rawKeywordScore / maxKeywordScore;
         double totalWeight = vectorWeight + keywordWeight;
         double normalizedVectorWeight = totalWeight <= 0 ? 0.7 : vectorWeight / totalWeight;
         double normalizedKeywordWeight = totalWeight <= 0 ? 0.3 : keywordWeight / totalWeight;
         double finalScore = vectorScore * normalizedVectorWeight + normalizedKeywordScore * normalizedKeywordWeight;
         return new VectorSearchResult(chunk, vectorScore, rawKeywordScore, finalScore);
-    }
-
-    private Set<String> tokenize(String question) {
-        String normalized = question == null ? "" : question.toLowerCase(Locale.ROOT).trim();
-        LinkedHashSet<String> terms = new LinkedHashSet<>();
-        for (String term : SPLIT_PATTERN.split(normalized)) {
-            if (term.length() >= 2) {
-                terms.add(term);
-            }
-        }
-        String cjkOnly = normalized.chars()
-                .filter(this::isCjk)
-                .collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append)
-                .toString();
-        for (int index = 0; index < cjkOnly.length() - 1; index++) {
-            terms.add(cjkOnly.substring(index, index + 2));
-        }
-        if (terms.isEmpty() && !normalized.isBlank()) {
-            terms.add(normalized);
-        }
-        return terms;
-    }
-
-    private boolean isCjk(int codePoint) {
-        return codePoint >= 0x4E00 && codePoint <= 0x9FFF;
-    }
-
-    private double keywordScore(String content, Set<String> terms) {
-        String normalized = content == null ? "" : content.toLowerCase(Locale.ROOT);
-        double score = 0;
-        for (String term : terms) {
-            int count = countOccurrences(normalized, term);
-            if (count > 0) {
-                score += 1 + Math.log(count + 1);
-                score += Math.min(term.length(), 12) * 0.08;
-            }
-        }
-        return score;
-    }
-
-    private int countOccurrences(String text, String term) {
-        int count = 0;
-        int from = 0;
-        while (from < text.length()) {
-            int index = text.indexOf(term, from);
-            if (index < 0) {
-                return count;
-            }
-            count++;
-            from = index + term.length();
-        }
-        return count;
     }
 
     private Connection openConnection() throws SQLException {

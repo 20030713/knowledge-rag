@@ -8,6 +8,10 @@ public record RagEvalSummaryResponse(
         Integer passedCount,
         Double passRate,
         Double averageKeywordScore,
+        Double retrievalHitRate,
+        Double meanReciprocalRank,
+        Double averageCitationPrecision,
+        Double abstentionAccuracy,
         Long averageLatencyMs,
         List<RagEvalRunResponse> runs
 ) {

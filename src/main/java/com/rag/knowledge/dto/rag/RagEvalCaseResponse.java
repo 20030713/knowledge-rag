@@ -8,6 +8,8 @@ public record RagEvalCaseResponse(
         String question,
         String expectedAnswer,
         String expectedKeywords,
+        String expectedSource,
+        Boolean expectNoAnswer,
         Boolean enabled,
         LocalDateTime createdAt,
         LocalDateTime updatedAt

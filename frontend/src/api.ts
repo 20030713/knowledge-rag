@@ -386,6 +386,8 @@ export type RagEvalCase = {
   question: string;
   expectedAnswer: string;
   expectedKeywords: string | null;
+  expectedSource: string | null;
+  expectNoAnswer: boolean;
   enabled: boolean;
   createdAt: string;
   updatedAt: string;
@@ -395,6 +397,8 @@ export type RagEvalCasePayload = {
   question: string;
   expectedAnswer: string;
   expectedKeywords?: string | null;
+  expectedSource?: string | null;
+  expectNoAnswer?: boolean;
   enabled: boolean;
 };
 
@@ -405,6 +409,11 @@ export type RagEvalRun = {
   answer: string;
   hitCount: number;
   keywordScore: number;
+  noAnswerCase: boolean;
+  retrievalHit: boolean | null;
+  reciprocalRank: number | null;
+  citationPrecision: number | null;
+  abstentionCorrect: boolean | null;
   passed: boolean;
   latencyMs: number | null;
   createdAt: string;
@@ -416,6 +425,10 @@ export type RagEvalSummary = {
   passedCount: number;
   passRate: number;
   averageKeywordScore: number;
+  retrievalHitRate: number;
+  meanReciprocalRank: number;
+  averageCitationPrecision: number;
+  abstentionAccuracy: number;
   averageLatencyMs: number;
   runs: RagEvalRun[];
 };

@@ -22,6 +22,7 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -109,6 +110,20 @@ public class RagEvalServiceImpl implements RagEvalService {
                 .toList();
         int passedCount = (int) runs.stream().filter(run -> Boolean.TRUE.equals(run.passed())).count();
         double avgKeywordScore = runs.stream().mapToDouble(run -> run.keywordScore() == null ? 0 : run.keywordScore()).average().orElse(0);
+        double retrievalHitRate = averageBoolean(runs.stream().map(RagEvalRunResponse::retrievalHit).toList());
+        double meanReciprocalRank = runs.stream()
+                .map(RagEvalRunResponse::reciprocalRank)
+                .filter(Objects::nonNull)
+                .mapToDouble(Double::doubleValue)
+                .average()
+                .orElse(0);
+        double averageCitationPrecision = runs.stream()
+                .map(RagEvalRunResponse::citationPrecision)
+                .filter(Objects::nonNull)
+                .mapToDouble(Double::doubleValue)
+                .average()
+                .orElse(0);
+        double abstentionAccuracy = averageBoolean(runs.stream().map(RagEvalRunResponse::abstentionCorrect).toList());
         long avgLatency = Math.round(runs.stream().mapToLong(run -> run.latencyMs() == null ? 0 : run.latencyMs()).average().orElse(0));
         return new RagEvalSummaryResponse(
                 kbId,
@@ -116,6 +131,10 @@ public class RagEvalServiceImpl implements RagEvalService {
                 passedCount,
                 round(passedCount * 1.0 / runs.size()),
                 round(avgKeywordScore),
+                round(retrievalHitRate),
+                round(meanReciprocalRank),
+                round(averageCitationPrecision),
+                round(abstentionAccuracy),
                 avgLatency,
                 runs
         );
@@ -148,6 +167,12 @@ public class RagEvalServiceImpl implements RagEvalService {
                 false
         ));
         double keywordScore = keywordScore(answer.answer(), evalCase.getExpectedKeywords(), evalCase.getExpectedAnswer());
+        boolean noAnswerCase = Boolean.TRUE.equals(evalCase.getExpectNoAnswer());
+        List<String> expectedSources = expectedSources(evalCase.getExpectedSource());
+        Boolean retrievalHit = noAnswerCase ? null : retrievalHit(answer, expectedSources);
+        Double reciprocalRank = noAnswerCase ? null : reciprocalRank(answer, expectedSources);
+        Double citationPrecision = noAnswerCase ? null : citationPrecision(answer, expectedSources);
+        Boolean abstentionCorrect = noAnswerCase ? isAbstention(answer) : null;
         RagEvalRun run = new RagEvalRun();
         run.setUserId(ownerUserId == null ? runnerUserId : ownerUserId);
         run.setKbId(evalCase.getKbId());
@@ -156,7 +181,14 @@ public class RagEvalServiceImpl implements RagEvalService {
         run.setAnswer(answer.answer());
         run.setHitCount(answer.hitCount());
         run.setKeywordScore(round(keywordScore));
-        run.setPassed(keywordScore >= 0.6 && answer.hitCount() != null && answer.hitCount() > 0);
+        run.setNoAnswerCase(noAnswerCase);
+        run.setRetrievalHit(retrievalHit);
+        run.setReciprocalRank(reciprocalRank == null ? null : round(reciprocalRank));
+        run.setCitationPrecision(citationPrecision == null ? null : round(citationPrecision));
+        run.setAbstentionCorrect(abstentionCorrect);
+        run.setPassed(noAnswerCase
+                ? Boolean.TRUE.equals(abstentionCorrect)
+                : keywordScore >= 0.6 && Boolean.TRUE.equals(retrievalHit));
         run.setLatencyMs(answer.latencyMs() == null ? elapsedMillis(startedAt) : answer.latencyMs());
         run.setCreatedAt(LocalDateTime.now());
         runMapper.insert(run);
@@ -176,7 +208,72 @@ public class RagEvalServiceImpl implements RagEvalService {
         evalCase.setQuestion(request.question().trim());
         evalCase.setExpectedAnswer(request.expectedAnswer().trim());
         evalCase.setExpectedKeywords(normalizeKeywords(request.expectedKeywords()));
+        evalCase.setExpectedSource(normalizeKeywords(request.expectedSource()));
+        evalCase.setExpectNoAnswer(Boolean.TRUE.equals(request.expectNoAnswer()));
         evalCase.setEnabled(request.enabled() == null || request.enabled());
+    }
+
+    private List<String> expectedSources(String value) {
+        if (value == null || value.isBlank()) {
+            return List.of();
+        }
+        return Arrays.stream(value.split("[,，;；\\n]+"))
+                .map(String::trim)
+                .filter(item -> !item.isBlank())
+                .toList();
+    }
+
+    private boolean retrievalHit(RagAskResponse answer, List<String> expectedSources) {
+        if (expectedSources.isEmpty()) {
+            return answer.hitCount() != null && answer.hitCount() > 0;
+        }
+        return answer.citations().stream().anyMatch(citation -> sourceMatches(citation.documentName(), expectedSources));
+    }
+
+    private double reciprocalRank(RagAskResponse answer, List<String> expectedSources) {
+        if (expectedSources.isEmpty()) {
+            return answer.citations().isEmpty() ? 0 : 1;
+        }
+        for (int index = 0; index < answer.citations().size(); index++) {
+            if (sourceMatches(answer.citations().get(index).documentName(), expectedSources)) {
+                return 1.0 / (index + 1);
+            }
+        }
+        return 0;
+    }
+
+    private double citationPrecision(RagAskResponse answer, List<String> expectedSources) {
+        if (answer.citations().isEmpty()) {
+            return 0;
+        }
+        if (expectedSources.isEmpty()) {
+            return 1;
+        }
+        long matches = answer.citations().stream()
+                .filter(citation -> sourceMatches(citation.documentName(), expectedSources))
+                .count();
+        return matches * 1.0 / answer.citations().size();
+    }
+
+    private boolean sourceMatches(String documentName, List<String> expectedSources) {
+        String normalized = documentName == null ? "" : documentName.toLowerCase(Locale.ROOT);
+        return expectedSources.stream()
+                .map(source -> source.toLowerCase(Locale.ROOT))
+                .anyMatch(normalized::contains);
+    }
+
+    private boolean isAbstention(RagAskResponse answer) {
+        String normalized = answer.answer() == null ? "" : answer.answer();
+        return answer.citations().isEmpty()
+                && (normalized.contains("资料不足") || normalized.contains("无法确认") || normalized.contains("不能确认"));
+    }
+
+    private double averageBoolean(List<Boolean> values) {
+        List<Boolean> present = values.stream().filter(Objects::nonNull).toList();
+        if (present.isEmpty()) {
+            return 0;
+        }
+        return present.stream().filter(Boolean.TRUE::equals).count() * 1.0 / present.size();
     }
 
     private String normalizeKeywords(String keywords) {
@@ -199,12 +296,19 @@ public class RagEvalServiceImpl implements RagEvalService {
         if (keywords.isEmpty()) {
             return 0;
         }
-        String normalizedAnswer = answer == null ? "" : answer.toLowerCase(Locale.ROOT);
+        String normalizedAnswer = normalizeForMatch(answer);
         long matched = keywords.stream()
-                .map(item -> item.toLowerCase(Locale.ROOT))
+                .map(this::normalizeForMatch)
+                .filter(item -> !item.isBlank())
                 .filter(normalizedAnswer::contains)
                 .count();
         return matched * 1.0 / keywords.size();
+    }
+
+    private String normalizeForMatch(String value) {
+        return value == null
+                ? ""
+                : value.toLowerCase(Locale.ROOT).replaceAll("[\\s,，。；;：:、.!！？?()（）\\[\\]【】_-]+", "");
     }
 
     private long elapsedMillis(long startedAt) {
@@ -222,6 +326,8 @@ public class RagEvalServiceImpl implements RagEvalService {
                 evalCase.getQuestion(),
                 evalCase.getExpectedAnswer(),
                 evalCase.getExpectedKeywords(),
+                evalCase.getExpectedSource(),
+                evalCase.getExpectNoAnswer(),
                 evalCase.getEnabled(),
                 evalCase.getCreatedAt(),
                 evalCase.getUpdatedAt()
@@ -236,6 +342,11 @@ public class RagEvalServiceImpl implements RagEvalService {
                 run.getAnswer(),
                 run.getHitCount(),
                 run.getKeywordScore(),
+                run.getNoAnswerCase(),
+                run.getRetrievalHit(),
+                run.getReciprocalRank(),
+                run.getCitationPrecision(),
+                run.getAbstentionCorrect(),
                 run.getPassed(),
                 run.getLatencyMs(),
                 run.getCreatedAt()

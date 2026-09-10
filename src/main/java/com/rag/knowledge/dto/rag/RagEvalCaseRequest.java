@@ -15,6 +15,11 @@ public record RagEvalCaseRequest(
         @Size(max = 500, message = "关键词不能超过500字")
         String expectedKeywords,
 
+        @Size(max = 500, message = "期望来源不能超过500字")
+        String expectedSource,
+
+        Boolean expectNoAnswer,
+
         Boolean enabled
 ) {
 }

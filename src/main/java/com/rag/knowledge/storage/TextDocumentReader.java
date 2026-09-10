@@ -46,6 +46,8 @@ public class TextDocumentReader {
     private String readPdf(Path path) {
         try (PDDocument document = Loader.loadPDF(path.toFile())) {
             PDFTextStripper stripper = new PDFTextStripper();
+            stripper.setSortByPosition(true);
+            stripper.setPageEnd("\n\f\n");
             return stripper.getText(document);
         } catch (IOException exception) {
             throw new BusinessException(ErrorCode.INTERNAL_ERROR, "解析 PDF 文档失败");

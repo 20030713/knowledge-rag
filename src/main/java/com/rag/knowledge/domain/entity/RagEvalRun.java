@@ -17,6 +17,11 @@ public class RagEvalRun {
     private String answer;
     private Integer hitCount;
     private Double keywordScore;
+    private Boolean noAnswerCase;
+    private Boolean retrievalHit;
+    private Double reciprocalRank;
+    private Double citationPrecision;
+    private Boolean abstentionCorrect;
     private Boolean passed;
     private Long latencyMs;
     private LocalDateTime createdAt;
@@ -83,6 +88,46 @@ public class RagEvalRun {
 
     public void setKeywordScore(Double keywordScore) {
         this.keywordScore = keywordScore;
+    }
+
+    public Boolean getNoAnswerCase() {
+        return noAnswerCase;
+    }
+
+    public void setNoAnswerCase(Boolean noAnswerCase) {
+        this.noAnswerCase = noAnswerCase;
+    }
+
+    public Boolean getRetrievalHit() {
+        return retrievalHit;
+    }
+
+    public void setRetrievalHit(Boolean retrievalHit) {
+        this.retrievalHit = retrievalHit;
+    }
+
+    public Double getReciprocalRank() {
+        return reciprocalRank;
+    }
+
+    public void setReciprocalRank(Double reciprocalRank) {
+        this.reciprocalRank = reciprocalRank;
+    }
+
+    public Double getCitationPrecision() {
+        return citationPrecision;
+    }
+
+    public void setCitationPrecision(Double citationPrecision) {
+        this.citationPrecision = citationPrecision;
+    }
+
+    public Boolean getAbstentionCorrect() {
+        return abstentionCorrect;
+    }
+
+    public void setAbstentionCorrect(Boolean abstentionCorrect) {
+        this.abstentionCorrect = abstentionCorrect;
     }
 
     public Boolean getPassed() {

@@ -72,6 +72,7 @@ public class RagServiceImpl implements RagService {
     private static final String SOURCE_LOCAL_FALLBACK = "LOCAL_FALLBACK";
     private static final long HIGH_LATENCY_THRESHOLD_MS = 5_000L;
     private static final int MEMORY_MESSAGE_LIMIT = 6;
+    private static final String INSUFFICIENT_ANSWER = "当前资料不足以确认。请补充相关文档，或换一种更具体的问法。";
 
     private final KnowledgeBaseMapper knowledgeBaseMapper;
     private final DocumentMapper documentMapper;
@@ -136,6 +137,7 @@ public class RagServiceImpl implements RagService {
         RagRuntimeOptions options = resolveOptions(loginUser.userId(), request);
         PromptTemplate activeTemplate = promptTemplateService.activeTemplate(request.kbId(), options.style()).orElse(null);
         String modelQuestion = questionWithMemory(memory, request.question());
+        String retrievalQuestion = retrievalQuestion(memory, request.question());
         String cacheQuestion = cacheQuestion(session.getId() + ":" + request.question(), options, activeTemplate);
         if (options.enableCache()) {
             RagAskResponse cached = ragAnswerCacheService.get(loginUser.userId(), request.kbId(), cacheQuestion).orElse(null);
@@ -149,17 +151,20 @@ public class RagServiceImpl implements RagService {
         List<VectorSearchResult> searchResults = vectorSearchService.search(
                 access.ownerUserId(),
                 request.kbId(),
-                request.question(),
+                retrievalQuestion,
                 candidateLimit(options.topK()),
                 options.vectorWeight(),
                 options.keywordWeight()
         );
         if (searchResults.isEmpty()) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "没有检索到相关片段，请先上传并解析文档，或换一种问法。");
+            return completeInsufficientAnswer(loginUser.userId(), session, request, options, cacheQuestion, startedAt);
         }
 
         Set<String> terms = tokenize(request.question());
-        searchResults = rerank(searchResults, request.question(), terms, options.topK());
+        searchResults = rerank(searchResults, retrievalQuestion, tokenize(retrievalQuestion), options.topK());
+        if (searchResults.isEmpty()) {
+            return completeInsufficientAnswer(loginUser.userId(), session, request, options, cacheQuestion, startedAt);
+        }
         Map<Long, Document> documentMap = loadDocuments(searchResults);
         List<RagCitationResponse> citations = searchResults.stream()
                 .map(item -> toCitation(item, documentMap))
@@ -168,13 +173,15 @@ public class RagServiceImpl implements RagService {
                 ? chatModelService.generateAnswer(modelQuestion, citations, options.style(), systemPrompt(activeTemplate, options.style()))
                 : Optional.empty();
         boolean generatedByModel = modelAnswer.isPresent();
+        boolean modelAbstained = modelAnswer.map(this::isInsufficientAnswer).orElse(false);
+        List<RagCitationResponse> effectiveCitations = modelAbstained ? List.of() : citations;
         RagAskResponse response = new RagAskResponse(
                 request.kbId(),
                 session.getId(),
                 request.question(),
                 modelAnswer.orElseGet(() -> buildTemplateAnswer(citations, terms, options.style())),
-                citations.size(),
-                citations,
+                effectiveCitations.size(),
+                effectiveCitations,
                 options.style().name(),
                 generatedByModel ? SOURCE_MODEL : SOURCE_LOCAL_FALLBACK,
                 generatedByModel ? chatModelService.modelName() : null,
@@ -201,6 +208,7 @@ public class RagServiceImpl implements RagService {
         RagRuntimeOptions options = resolveOptions(loginUser.userId(), request);
         PromptTemplate activeTemplate = promptTemplateService.activeTemplate(request.kbId(), options.style()).orElse(null);
         String modelQuestion = questionWithMemory(memory, request.question());
+        String retrievalQuestion = retrievalQuestion(memory, request.question());
         String cacheQuestion = cacheQuestion(session.getId() + ":" + request.question(), options, activeTemplate);
         if (options.enableCache()) {
             RagAskResponse cached = ragAnswerCacheService.get(loginUser.userId(), request.kbId(), cacheQuestion).orElse(null);
@@ -217,23 +225,26 @@ public class RagServiceImpl implements RagService {
         List<VectorSearchResult> searchResults = vectorSearchService.search(
                 access.ownerUserId(),
                 request.kbId(),
-                request.question(),
+                retrievalQuestion,
                 candidateLimit(options.topK()),
                 options.vectorWeight(),
                 options.keywordWeight()
         );
         if (searchResults.isEmpty()) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "没有检索到相关片段，请先上传并解析文档，或换一种问法。");
+            streamInsufficientAnswer(loginUser.userId(), session, request, options, cacheQuestion, startedAt, handler);
+            return;
         }
 
         Set<String> terms = tokenize(request.question());
-        searchResults = rerank(searchResults, request.question(), terms, options.topK());
+        searchResults = rerank(searchResults, retrievalQuestion, tokenize(retrievalQuestion), options.topK());
+        if (searchResults.isEmpty()) {
+            streamInsufficientAnswer(loginUser.userId(), session, request, options, cacheQuestion, startedAt, handler);
+            return;
+        }
         Map<Long, Document> documentMap = loadDocuments(searchResults);
         List<RagCitationResponse> citations = searchResults.stream()
                 .map(item -> toCitation(item, documentMap))
                 .toList();
-        handler.onCitations(citations);
-
         Optional<String> modelAnswer = options.enableModel()
                 ? chatModelService.streamAnswer(modelQuestion, citations, options.style(), systemPrompt(activeTemplate, options.style()), handler::onDelta)
                 : Optional.empty();
@@ -244,14 +255,17 @@ public class RagServiceImpl implements RagService {
                     streamText(fallback, handler);
                     return fallback;
                 });
+        boolean modelAbstained = generatedByModel && isInsufficientAnswer(answer);
+        List<RagCitationResponse> effectiveCitations = modelAbstained ? List.of() : citations;
+        handler.onCitations(effectiveCitations);
 
         RagAskResponse response = new RagAskResponse(
                 request.kbId(),
                 session.getId(),
                 request.question(),
                 answer,
-                citations.size(),
-                citations,
+                effectiveCitations.size(),
+                effectiveCitations,
                 options.style().name(),
                 generatedByModel ? SOURCE_MODEL : SOURCE_LOCAL_FALLBACK,
                 generatedByModel ? chatModelService.modelName() : null,
@@ -266,6 +280,74 @@ public class RagServiceImpl implements RagService {
             ragAnswerCacheService.put(loginUser.userId(), request.kbId(), cacheQuestion, response);
         }
         handler.onComplete(response);
+    }
+
+    private RagAskResponse completeInsufficientAnswer(
+            Long userId,
+            ChatSession session,
+            RagAskRequest request,
+            RagRuntimeOptions options,
+            String cacheQuestion,
+            long startedAt
+    ) {
+        RagAskResponse response = insufficientResponse(session, request, options, startedAt);
+        saveRecord(userId, session.getId(), response);
+        saveConversationTurn(session, request.question(), response.answer());
+        hotQuestionService.record(request.kbId(), request.question());
+        if (options.enableCache()) {
+            ragAnswerCacheService.put(userId, request.kbId(), cacheQuestion, response);
+        }
+        return response;
+    }
+
+    private void streamInsufficientAnswer(
+            Long userId,
+            ChatSession session,
+            RagAskRequest request,
+            RagRuntimeOptions options,
+            String cacheQuestion,
+            long startedAt,
+            RagStreamHandler handler
+    ) {
+        RagAskResponse response = completeInsufficientAnswer(
+                userId, session, request, options, cacheQuestion, startedAt
+        );
+        handler.onCitations(List.of());
+        streamText(response.answer(), handler);
+        handler.onComplete(response);
+    }
+
+    private RagAskResponse insufficientResponse(
+            ChatSession session,
+            RagAskRequest request,
+            RagRuntimeOptions options,
+            long startedAt
+    ) {
+        return new RagAskResponse(
+                request.kbId(),
+                session.getId(),
+                request.question(),
+                INSUFFICIENT_ANSWER,
+                0,
+                List.of(),
+                options.style().name(),
+                SOURCE_LOCAL_FALLBACK,
+                null,
+                elapsedMillis(startedAt),
+                false,
+                false
+        );
+    }
+
+    private boolean isInsufficientAnswer(String answer) {
+        if (answer == null || answer.isBlank()) {
+            return false;
+        }
+        String compact = answer.replaceAll("\\s+", "");
+        return compact.contains("资料不足")
+                || compact.contains("无法确认")
+                || compact.contains("不能确认")
+                || compact.contains("没有足够信息");
     }
 
     private void streamText(String text, RagStreamHandler handler) {
@@ -673,7 +755,7 @@ public class RagServiceImpl implements RagService {
     }
 
     private int candidateLimit(int topK) {
-        return Math.max(topK, Math.min(50, topK * 3));
+        return Math.max(topK, Math.min(80, topK * vectorSearchProperties.safeCandidateMultiplier()));
     }
 
     private List<VectorSearchResult> rerank(
@@ -683,11 +765,75 @@ public class RagServiceImpl implements RagService {
             int topK
     ) {
         String normalizedQuestion = question == null ? "" : question.toLowerCase(Locale.ROOT).trim();
-        return results.stream()
+        List<VectorSearchResult> scored = results.stream()
                 .map(result -> rerankedResult(result, normalizedQuestion, terms))
                 .sorted((left, right) -> Double.compare(right.finalScore(), left.finalScore()))
-                .limit(topK)
                 .toList();
+        if (scored.isEmpty() || !hasEnoughEvidence(scored.getFirst(), terms)) {
+            return List.of();
+        }
+        List<VectorSearchResult> selected = new ArrayList<>();
+        List<VectorSearchResult> remaining = new ArrayList<>(scored.stream()
+                .filter(result -> result.finalScore() >= vectorSearchProperties.safeMinRelevanceScore())
+                .toList());
+        while (!remaining.isEmpty() && selected.size() < topK) {
+            VectorSearchResult next = remaining.stream()
+                    .max((left, right) -> Double.compare(
+                            diversifiedScore(left, selected),
+                            diversifiedScore(right, selected)
+                    ))
+                    .orElseThrow();
+            remaining.remove(next);
+            double similarity = maxSimilarity(next, selected);
+            if (similarity < 0.92) {
+                selected.add(new VectorSearchResult(
+                        next.chunk(),
+                        next.vectorScore(),
+                        next.keywordScore(),
+                        Math.max(0, diversifiedScore(next, selected))
+                ));
+            }
+        }
+        return selected;
+    }
+
+    private boolean hasEnoughEvidence(VectorSearchResult topResult, Set<String> terms) {
+        String content = topResult.chunk().getContent() == null ? "" : topResult.chunk().getContent().toLowerCase(Locale.ROOT);
+        double keywordCoverage = keywordCoverageScore(content, terms);
+        return topResult.vectorScore() >= vectorSearchProperties.safeSemanticConfidenceScore()
+                || keywordCoverage >= vectorSearchProperties.safeMinKeywordCoverage();
+    }
+
+    private double diversifiedScore(VectorSearchResult candidate, List<VectorSearchResult> selected) {
+        return candidate.finalScore()
+                - vectorSearchProperties.safeDiversityPenalty() * maxSimilarity(candidate, selected);
+    }
+
+    private double maxSimilarity(VectorSearchResult candidate, List<VectorSearchResult> selected) {
+        return selected.stream()
+                .mapToDouble(item -> chunkSimilarity(candidate.chunk().getContent(), item.chunk().getContent()))
+                .max()
+                .orElse(0);
+    }
+
+    private double chunkSimilarity(String left, String right) {
+        Set<String> leftShingles = shingles(left);
+        Set<String> rightShingles = shingles(right);
+        if (leftShingles.isEmpty() || rightShingles.isEmpty()) {
+            return 0;
+        }
+        long intersection = leftShingles.stream().filter(rightShingles::contains).count();
+        long union = leftShingles.size() + rightShingles.size() - intersection;
+        return union == 0 ? 0 : intersection * 1.0 / union;
+    }
+
+    private Set<String> shingles(String content) {
+        String normalized = content == null ? "" : content.toLowerCase(Locale.ROOT).replaceAll("\\s+", "").trim();
+        LinkedHashSet<String> values = new LinkedHashSet<>();
+        for (int index = 0; index < normalized.length() - 2; index++) {
+            values.add(normalized.substring(index, index + 3));
+        }
+        return values;
     }
 
     private VectorSearchResult rerankedResult(VectorSearchResult result, String normalizedQuestion, Set<String> terms) {
@@ -904,6 +1050,31 @@ public class RagServiceImpl implements RagService {
         }
         builder.append("\n当前问题：").append(question);
         return builder.toString();
+    }
+
+    private String retrievalQuestion(List<ChatMessage> memory, String question) {
+        if (memory.isEmpty() || !looksLikeFollowUp(question)) {
+            return question;
+        }
+        String previousUserQuestion = memory.reversed().stream()
+                .filter(message -> "USER".equals(message.getRole()))
+                .map(ChatMessage::getContent)
+                .filter(content -> content != null && !content.isBlank())
+                .findFirst()
+                .orElse("");
+        if (previousUserQuestion.isBlank()) {
+            return question;
+        }
+        return trimForMemory(previousUserQuestion) + "\n" + question;
+    }
+
+    private boolean looksLikeFollowUp(String question) {
+        if (question == null || question.isBlank()) {
+            return false;
+        }
+        String compact = question.replaceAll("\\s+", "");
+        return compact.length() <= 14
+                || compact.matches(".*(?:它|这个|该|上述|前面|这些|那|其|此).*");
     }
 
     private String trimForMemory(String content) {

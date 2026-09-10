@@ -9,6 +9,11 @@ public record RagEvalRunResponse(
         String answer,
         Integer hitCount,
         Double keywordScore,
+        Boolean noAnswerCase,
+        Boolean retrievalHit,
+        Double reciprocalRank,
+        Double citationPrecision,
+        Boolean abstentionCorrect,
         Boolean passed,
         Long latencyMs,
         LocalDateTime createdAt

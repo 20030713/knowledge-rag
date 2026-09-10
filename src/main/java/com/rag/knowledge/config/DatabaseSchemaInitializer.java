@@ -55,7 +55,14 @@ public class DatabaseSchemaInitializer implements ApplicationRunner {
         addColumnIfMissing("qa_record", "feedback_at", "`feedback_at` DATETIME DEFAULT NULL");
         createQaCitationTable();
         createRagEvalCaseTable();
+        addColumnIfMissing("rag_eval_case", "expected_source", "`expected_source` VARCHAR(500) DEFAULT NULL");
+        addColumnIfMissing("rag_eval_case", "expect_no_answer", "`expect_no_answer` TINYINT(1) NOT NULL DEFAULT 0");
         createRagEvalRunTable();
+        addColumnIfMissing("rag_eval_run", "no_answer_case", "`no_answer_case` TINYINT(1) NOT NULL DEFAULT 0");
+        addColumnIfMissing("rag_eval_run", "retrieval_hit", "`retrieval_hit` TINYINT(1) DEFAULT NULL");
+        addColumnIfMissing("rag_eval_run", "reciprocal_rank", "`reciprocal_rank` DOUBLE DEFAULT NULL");
+        addColumnIfMissing("rag_eval_run", "citation_precision", "`citation_precision` DOUBLE DEFAULT NULL");
+        addColumnIfMissing("rag_eval_run", "abstention_correct", "`abstention_correct` TINYINT(1) DEFAULT NULL");
         log.info("Database schema checked");
     }
 
@@ -382,6 +389,8 @@ public class DatabaseSchemaInitializer implements ApplicationRunner {
                   `question` VARCHAR(500) NOT NULL,
                   `expected_answer` TEXT NOT NULL,
                   `expected_keywords` VARCHAR(500) DEFAULT NULL,
+                  `expected_source` VARCHAR(500) DEFAULT NULL,
+                  `expect_no_answer` TINYINT(1) NOT NULL DEFAULT 0,
                   `enabled` TINYINT(1) NOT NULL DEFAULT 1,
                   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -402,6 +411,11 @@ public class DatabaseSchemaInitializer implements ApplicationRunner {
                   `answer` TEXT NOT NULL,
                   `hit_count` INT NOT NULL DEFAULT 0,
                   `keyword_score` DOUBLE DEFAULT NULL,
+                  `no_answer_case` TINYINT(1) NOT NULL DEFAULT 0,
+                  `retrieval_hit` TINYINT(1) DEFAULT NULL,
+                  `reciprocal_rank` DOUBLE DEFAULT NULL,
+                  `citation_precision` DOUBLE DEFAULT NULL,
+                  `abstention_correct` TINYINT(1) DEFAULT NULL,
                   `passed` TINYINT(1) NOT NULL DEFAULT 0,
                   `latency_ms` BIGINT DEFAULT NULL,
                   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

@@ -15,6 +15,8 @@ public class RagEvalCase {
     private String question;
     private String expectedAnswer;
     private String expectedKeywords;
+    private String expectedSource;
+    private Boolean expectNoAnswer;
     private Boolean enabled;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -65,6 +67,22 @@ public class RagEvalCase {
 
     public void setExpectedKeywords(String expectedKeywords) {
         this.expectedKeywords = expectedKeywords;
+    }
+
+    public String getExpectedSource() {
+        return expectedSource;
+    }
+
+    public void setExpectedSource(String expectedSource) {
+        this.expectedSource = expectedSource;
+    }
+
+    public Boolean getExpectNoAnswer() {
+        return expectNoAnswer;
+    }
+
+    public void setExpectNoAnswer(Boolean expectNoAnswer) {
+        this.expectNoAnswer = expectNoAnswer;
     }
 
     public Boolean getEnabled() {

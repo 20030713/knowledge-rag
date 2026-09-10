@@ -66,4 +66,41 @@ class TextChunkerTests {
         assertThat(chunks).allSatisfy(chunk -> assertThat(chunk).hasSizeLessThanOrEqualTo(300));
         assertThat(chunks.get(1)).startsWith(chunks.get(0).substring(chunks.get(0).length() - 40));
     }
+
+    @Test
+    void splitShouldRemoveRepeatedPageMarginsAndPageNumbers() {
+        String text = """
+                星河科技内部资料
+                第一页正文介绍缓存雪崩。
+                1 / 2
+                \f
+                星河科技内部资料
+                第二页正文介绍缓存击穿。
+                2 / 2
+                """;
+
+        List<String> chunks = textChunker.split(text);
+
+        assertThat(chunks).hasSize(1);
+        assertThat(chunks.getFirst())
+                .contains("第一页正文", "第二页正文")
+                .doesNotContain("星河科技内部资料", "1 / 2", "2 / 2");
+    }
+
+    @Test
+    void splitShouldCarryMarkdownHeadingIntoFollowingChunksWithoutRepeatingItInOneChunk() {
+        String text = """
+                # Redis 故障处理
+
+                Redis 延迟超过阈值时先检查慢查询和热键。
+
+                缓存不可用时切换到受限的数据库直读模式。
+                """;
+
+        List<String> chunks = textChunker.split(text, new TextChunker.SplitOptions(45, 8, 20));
+
+        assertThat(chunks).hasSizeGreaterThan(1);
+        assertThat(chunks).allSatisfy(chunk -> assertThat(chunk).contains("# Redis 故障处理"));
+        assertThat(chunks.getFirst().split("# Redis 故障处理", -1)).hasSize(2);
+    }
 }

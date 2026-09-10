@@ -48,10 +48,11 @@
 
 ## 核心能力
 
-- **完整 RAG 链路**：上传文档、解析清洗、chunk 切分、Embedding、TopK 召回、Prompt 组装、流式生成与引用落库。
+- **完整 RAG 链路**：上传文档、版面清洗、标题感知 chunk 切分、Embedding、混合召回、证据门控、Prompt 组装、流式生成与引用落库。
 - **真实模型接入**：兼容 OpenAI API 协议，可接入 DeepSeek 等聊天模型以及阿里云百炼 Embedding 模型。
 - **向量检索**：支持 pgvector 持久化与召回，并保留本地 Hashing Embedding 作为开发和故障降级方案。
-- **混合排序**：融合向量相似度与关键词命中分数，支持 TopK、候选扫描上限和权重配置。
+- **混合检索与排序**：独立召回 pgvector 与 BM25 候选后合并排序，并通过相关度阈值、关键词覆盖和 MMR 式去重控制证据质量；Embedding 暂时不可用时仍可使用 BM25 检索。
+- **可靠拒答**：资料与问题关联不足时在生成前拒答；模型主动判定资料不足时不返回误导性引用。
 - **引用可解释**：普通界面以文档来源和引用原文帮助用户核验答案；chunk、向量分数和关键词分数仅在管理员诊断中展示。
 - **三种回答模式**：严谨模式、简洁模式、面试模式，可结合知识库级 Prompt 模板调整输出策略。
 - **异步文档任务**：PDF、DOC、DOCX、Markdown、TXT 异步解析，包含进度轮询、状态机、失败重试和任务日志。
@@ -92,9 +93,9 @@ sequenceDiagram
 
     User->>API: 提交问题与回答模式
     API->>Redis: 限流检查与缓存查询
-    API->>Vector: 问题向量 TopK 检索
-    Vector-->>API: 候选 chunk 与相似度
-    API->>API: 关键词融合排序与 Prompt 组装
+    API->>Vector: pgvector 与 BM25 独立召回
+    Vector-->>API: 合并候选与分数组成
+    API->>API: 相关度门控、去重与 Prompt 组装
     API->>LLM: 流式生成答案
     LLM-->>User: SSE 增量输出
     API->>Redis: 写入问答缓存
@@ -131,6 +132,19 @@ sequenceDiagram
 | 质量评测 | 评测用例、批量运行、命中率、引用率、延迟与质量问题统计 |
 | 系统监控 | 组件健康、今日指标、运行配置、诊断建议和缓存状态 |
 | 管理后台 | 用户启停、密码重置、登录审计和管理员操作日志 |
+
+## RAG 质量评测
+
+仓库内置一套可重复执行的中文评测语料，覆盖费用报销、故障处置和 RAG 工程规范三类知识，并包含应当拒答的问题。评测会同时统计答案关键词得分、检索命中率、MRR、引用精度、拒答准确率和平均延迟，避免只凭主观观感判断效果。
+
+```powershell
+.\scripts\seed-rag-evaluation.ps1 `
+  -Token '<登录后获得的 JWT>' `
+  -ShareWith '<需要共享的用户名>' `
+  -RunEvaluation
+```
+
+脚本会创建独立评测知识库、上传并解析 `docs/evaluation-corpus` 中的三份文档、写入 15 条评测用例并运行批量评测。重复执行时会复用同名知识库和用例，适合在调整切片、召回或 Prompt 后进行回归比较。
 
 ## 快速启动
 
@@ -212,7 +226,8 @@ knowledge-rag/
 │  └─ config/          # 模型、线程池和基础设施配置
 ├─ frontend/           # React + TypeScript 前端
 ├─ sql/init.sql        # MySQL 初始化脚本
-├─ docs/               # 架构、部署与技术文档
+├─ docs/               # 架构、部署、技术文档与评测语料
+├─ scripts/            # 评测数据初始化脚本
 ├─ docker-compose.yml  # 本地开发编排
 └─ docker-compose.prod.yml
 ```
@@ -229,7 +244,7 @@ npm install
 npm run build
 ```
 
-当前测试覆盖鉴权拦截器、文本切分、文档读取、本地向量生成与检索、管理服务等核心逻辑。
+当前测试覆盖鉴权拦截器、文本清洗与切分、BM25 关键词评分、文档读取、本地向量生成与检索、管理服务等核心逻辑。
 
 ## 技术文档
 
@@ -242,6 +257,7 @@ npm run build
 - [宝塔生产部署说明](docs/宝塔生产部署说明.md)
 - [项目踩坑记录](docs/项目踩坑记录.md)
 - [演示脚本](docs/演示脚本.md)
+- [RAG 评测语料与执行说明](docs/evaluation-corpus/README.md)
 
 ## 安全说明
 

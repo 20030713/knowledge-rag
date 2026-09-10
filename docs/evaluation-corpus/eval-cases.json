@@ -1,0 +1,17 @@
+[
+  {"question":"国内出差每天的餐饮补贴上限是多少？","expectedAnswer":"国内出差餐饮补贴上限为每人每天120元。","expectedKeywords":"120元,每天,餐饮补贴","expectedSource":"expense-policy.md","expectNoAnswer":false},
+  {"question":"在上海出差，酒店每晚上限是多少？","expectedAnswer":"上海住宿上限为每晚650元。","expectedKeywords":"上海,650元,每晚","expectedSource":"expense-policy.md","expectNoAnswer":false},
+  {"question":"报销最迟应在费用发生后多久提交？","expectedAnswer":"应在费用发生后的30个自然日内提交。","expectedKeywords":"30个自然日,报销时限","expectedSource":"expense-policy.md","expectNoAnswer":false},
+  {"question":"因展会导致酒店普遍涨价时，超标报销需要什么材料和审批？","expectedAnswer":"需要保留至少两家酒店的价格截图，并取得直属负责人批准。","expectedKeywords":"两家酒店,价格截图,直属负责人批准","expectedSource":"expense-policy.md","expectNoAnswer":false},
+  {"question":"SEV-1告警多久内必须确认？","expectedAnswer":"值班工程师必须在5分钟内确认。","expectedKeywords":"5分钟,确认","expectedSource":"incident-runbook.md","expectNoAnswer":false},
+  {"question":"SEV-1事故的内部状态更新频率是什么？","expectedAnswer":"至少每20分钟发布一次内部状态更新。","expectedKeywords":"每20分钟,内部状态更新","expectedSource":"incident-runbook.md","expectNoAnswer":false},
+  {"question":"Redis不可用时，为什么还要把数据库连接池上限下调20%？","expectedAnswer":"切换数据库直读后下调连接池上限20%，是为了避免恢复瞬间形成连接风暴。","expectedKeywords":"下调20%,连接风暴,数据库直读","expectedSource":"incident-runbook.md","expectNoAnswer":false},
+  {"question":"SEV-2事故要求几天内完成复盘？","expectedAnswer":"事故结束后3个工作日内完成无责复盘。","expectedKeywords":"3个工作日,无责复盘","expectedSource":"incident-runbook.md","expectNoAnswer":false},
+  {"question":"扫描型PDF在什么条件下进入OCR队列？","expectedAnswer":"每页可提取字符少于40个时进入OCR队列。","expectedKeywords":"少于40个,OCR队列","expectedSource":"rag-engineering-guide.md","expectNoAnswer":false},
+  {"question":"为什么关键词召回不能只在向量候选中打分？","expectedAnswer":"向量和BM25应独立生成候选后合并，这样精确编号、错误码和型号不会因向量预筛选而丢失。","expectedKeywords":"独立生成候选,合并,精确编号","expectedSource":"rag-engineering-guide.md","expectNoAnswer":false},
+  {"question":"RAG规范中的默认切分长度和重叠长度分别是多少？","expectedAnswer":"默认目标长度480个字符，重叠长度80个字符。","expectedKeywords":"480个字符,80个字符","expectedSource":"rag-engineering-guide.md","expectNoAnswer":false},
+  {"question":"正式知识库的评测集最低应有多少条问题？","expectedAnswer":"每个正式知识库至少维护50条评测问题。","expectedKeywords":"至少,50条,评测问题","expectedSource":"rag-engineering-guide.md","expectNoAnswer":false},
+  {"question":"公司的年假最多可以结转几天？","expectedAnswer":"当前资料不足以确认。","expectedKeywords":"资料不足","expectedSource":"","expectNoAnswer":true},
+  {"question":"生产数据库的备份保留周期是多少天？","expectedAnswer":"当前资料不足以确认。","expectedKeywords":"资料不足","expectedSource":"","expectNoAnswer":true},
+  {"question":"公司北京办公室的详细地址是什么？","expectedAnswer":"当前资料不足以确认。","expectedKeywords":"资料不足","expectedSource":"","expectNoAnswer":true}
+]

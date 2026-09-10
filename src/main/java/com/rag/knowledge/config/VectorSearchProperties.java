@@ -12,6 +12,11 @@ public class VectorSearchProperties {
     private int dimensions = 256;
     private double vectorWeight = 0.7;
     private double keywordWeight = 0.3;
+    private int candidateMultiplier = 5;
+    private double minRelevanceScore = 0.18;
+    private double diversityPenalty = 0.12;
+    private double semanticConfidenceScore = 0.55;
+    private double minKeywordCoverage = 0.25;
 
     public int getTopK() {
         return topK;
@@ -53,6 +58,46 @@ public class VectorSearchProperties {
         this.keywordWeight = keywordWeight;
     }
 
+    public int getCandidateMultiplier() {
+        return candidateMultiplier;
+    }
+
+    public void setCandidateMultiplier(int candidateMultiplier) {
+        this.candidateMultiplier = candidateMultiplier;
+    }
+
+    public double getMinRelevanceScore() {
+        return minRelevanceScore;
+    }
+
+    public void setMinRelevanceScore(double minRelevanceScore) {
+        this.minRelevanceScore = minRelevanceScore;
+    }
+
+    public double getDiversityPenalty() {
+        return diversityPenalty;
+    }
+
+    public void setDiversityPenalty(double diversityPenalty) {
+        this.diversityPenalty = diversityPenalty;
+    }
+
+    public double getSemanticConfidenceScore() {
+        return semanticConfidenceScore;
+    }
+
+    public void setSemanticConfidenceScore(double semanticConfidenceScore) {
+        this.semanticConfidenceScore = semanticConfidenceScore;
+    }
+
+    public double getMinKeywordCoverage() {
+        return minKeywordCoverage;
+    }
+
+    public void setMinKeywordCoverage(double minKeywordCoverage) {
+        this.minKeywordCoverage = minKeywordCoverage;
+    }
+
     public int safeTopK() {
         return Math.max(1, Math.min(topK, 20));
     }
@@ -63,6 +108,26 @@ public class VectorSearchProperties {
 
     public int safeDimensions() {
         return Math.max(32, Math.min(dimensions, 4096));
+    }
+
+    public int safeCandidateMultiplier() {
+        return Math.max(2, Math.min(candidateMultiplier, 10));
+    }
+
+    public double safeMinRelevanceScore() {
+        return Math.max(0, Math.min(minRelevanceScore, 1));
+    }
+
+    public double safeDiversityPenalty() {
+        return Math.max(0, Math.min(diversityPenalty, 0.5));
+    }
+
+    public double safeSemanticConfidenceScore() {
+        return Math.max(0, Math.min(semanticConfidenceScore, 1));
+    }
+
+    public double safeMinKeywordCoverage() {
+        return Math.max(0, Math.min(minKeywordCoverage, 1));
     }
 
     public double normalizedVectorWeight() {

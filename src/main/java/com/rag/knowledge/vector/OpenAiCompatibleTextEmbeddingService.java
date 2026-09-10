@@ -3,6 +3,8 @@ package com.rag.knowledge.vector;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.rag.knowledge.config.EmbeddingModelProperties;
+import com.rag.knowledge.common.ErrorCode;
+import com.rag.knowledge.exception.BusinessException;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.List;
@@ -48,11 +50,14 @@ public class OpenAiCompatibleTextEmbeddingService implements TextEmbeddingServic
                     .retrieve()
                     .body(EmbeddingResponse.class);
             double[] vector = extractVector(response);
-            return vector.length == 0 ? fallback.embed(text) : normalize(vector);
+            if (vector.length != properties.safeDimensions()) {
+                throw new IllegalStateException("Embedding response dimension mismatch: " + vector.length);
+            }
+            return normalize(vector);
         } catch (Exception exception) {
-            log.warn("Embedding model call failed, fallback to local hashing. model={}, baseUrl={}",
+            log.warn("Embedding model call failed. Refusing to mix local hash vectors into the external model namespace. model={}, baseUrl={}",
                     properties.getModel(), properties.safeBaseUrl(), exception);
-            return fallback.embed(text);
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "Embedding 模型暂时不可用，请稍后重试");
         }
     }
 
